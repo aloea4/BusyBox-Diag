@@ -348,156 +348,45 @@ diag_net_foreach_udp(...)
 ```
 
 
-
 ## 9. Project Structure & Integration Layout
-
-```markdown
-# Project Structure & Integration Layout
 
 本專案採用「分層設計（Layered Architecture）」：
 
-```
-
+```text
 final_project/
 │
-├── libdiag/                ← 核心資料收集模組
+├── libdiag/
 │   ├── include/libdiag/
 │   ├── src/libdiag/
 │   └── libdiag.a
 │
-├── tools/                  ← 上層 CLI 工具
-│   ├── diagps/             ← 行程分析工具（類似 ps/top）
-│   │   └── diagps.c
-│   │
-│   ├── diagfs/             ← 檔案系統工具（類似 df）
-│   │   └── diagfs.c
-│   │
-│   ├── diagnet/            ← 網路工具（類似 netstat）
-│   │   └── diagnet.c
+├── tools/
+│   ├── diagps/
+│   ├── diagfs/
+│   ├── diagnet/
 │
-├── examples/               ← libdiag 測試與使用範例
-├── tests/fixtures/         ← parser 測試資料
-├── docs/                   ← 文件
-
+├── examples/
+├── tests/fixtures/
+├── docs/
 ```
 
 ---
 
 ## 📌 Layered Design
 
-系統分為兩層：
-
 ```
-
 Layer 1：libdiag（資料收集）
-Layer 2：tools（CLI / 顯示 / 使用者互動）
-
+Layer 2：tools（CLI / 顯示）
 ```
 
-資料流：
+---
+
+## 📌 Data Flow
 
 ```
-
 /proc / statfs / ioctl
-↓
-libdiag
-↓
+        ↓
+     libdiag
+        ↓
 diagps / diagfs / diagnet
-
-````
-
----
-
-## 📌 Responsibility Separation
-
-### libdiag（核心模組）
-
-負責：
-
-- 讀取 `/proc`
-- 呼叫 `statfs`
-- 呼叫 `ioctl(FIEMAP)`
-- 解析 kernel data
-- 提供 struct 化資料
-
-**不負責：**
-
-- CLI 參數
-- UI 顯示
-- 表格排版
-
----
-
-### tools（上層工具）
-
-負責：
-
-- CLI parsing
-- 使用者輸出（table / JSON）
-- 即時刷新（TTY）
-
-**不負責：**
-
-- 直接讀 `/proc`
-- 自行解析 kernel 資料
-
----
-
-## 📌 Integration Rule（非常重要）
-
-所有上層工具必須遵守：
-
-```text
-✔ 使用 libdiag API
-✘ 不可直接讀 /proc
-✘ 不可自行解析 kernel 格式
-````
-
----
-
-## 📌 Example Integration
-
-### diagps
-
-```c
-#include "libdiag/diag_common.h"
-#include "libdiag/diag_proc.h"
 ```
-
-使用：
-
-```c
-diag_proc_foreach(...)
-diag_cpu_read_snapshot(...)
-```
-
----
-
-### diagfs
-
-```c
-#include "libdiag/diag_fs.h"
-```
-
-使用：
-
-```c
-diag_fs_read(...)
-diag_fs_read_fiemap(...)
-```
-
----
-
-### diagnet
-
-```c
-#include "libdiag/diag_net.h"
-```
-
-使用：
-
-```c
-diag_net_foreach_tcp(...)
-diag_net_foreach_udp(...)
-```
-
