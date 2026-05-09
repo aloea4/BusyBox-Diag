@@ -8,107 +8,123 @@
 
 volatile sig_atomic_t keep_running = 1;
 
-// 處理 Ctrl+C 結束訊號
+// 捕捉 Ctrl+C
 void handle_sigint(int sig) {
+    (void)sig; // 避免 unused 警告
     keep_running = 0;
 }
 
-// 判斷該 PID 是否為 Root Process (沒有 Parent 在當前的列表中)
-int is_root_process(diag_proc_stat_t *procs, size_t count, pid_t ppid) {
-    if (ppid == 0) return 1;
-    for (size_t i = 0; i < count; ++i) {
-        if (procs[i].pid == ppid) {
-            return 0; // 找到它的 Parent 了，所以不是 Root
-        }
+// 用來暫存 Process 列表的動態陣列結構
+typedef struct {
+    diag_proc_info_t *procs;
+    size_t count;
+    size_t capacity;
+} proc_list_t;
+
+// 給 diag_proc_foreach 使用的 Callback 函式
+int collect_proc_cb(const diag_proc_info_t *info, void *user) {
+    proc_list_t *list = (proc_list_t *)user;
+    
+    // 如果容量不夠，進行擴充
+    if (list->count >= list->capacity) {
+        list->capacity = (list->capacity == 0) ? 128 : list->capacity * 2;
+        diag_proc_info_t *new_procs = realloc(list->procs, list->capacity * sizeof(diag_proc_info_t));
+        if (!new_procs) return -1; // 記憶體分配失敗，中斷走訪
+        list->procs = new_procs;
     }
-    return 1; // 找不到 Parent，將其視為樹狀圖的頂點
+    
+    list->procs[list->count++] = *info;
+    return 0; // 回傳 0 讓 foreach 繼續走訪下一個 pid
+}
+
+// 判斷是否為根節點 (如果它的 ppid 不在我們當前的列表中，就視為樹的起點)
+int is_root_process(proc_list_t *list, int ppid) {
+    if (ppid == 0 || ppid == 1 || ppid == 2) return 1; // 1=init/systemd, 2=kthreadd
+    for (size_t i = 0; i < list->count; ++i) {
+        if (list->procs[i].pid == ppid) return 0;
+    }
+    return 1;
 }
 
 // 遞迴印出 PID 樹狀圖
-void print_process_tree(diag_proc_stat_t *procs, size_t count, pid_t parent_pid, int depth) {
-    for (size_t i = 0; i < count; ++i) {
-        if (procs[i].ppid == parent_pid) {
-            // 處理縮排
-            for (int d = 0; d < depth; d++) {
-                printf("  | ");
-            }
-            if (depth > 0) {
-                printf("|- ");
-            }
-
-            // 換算 Memory (假設 page size 為 4KB)
-            long mem_kb = (procs[i].rss * 4096) / 1024;
+void print_process_tree(proc_list_t *list, int parent_pid, int depth) {
+    for (size_t i = 0; i < list->count; ++i) {
+        if (list->procs[i].ppid == parent_pid) {
+            // 印出縮排與分支
+            for (int d = 0; d < depth; d++) printf("  | ");
+            if (depth > 0) printf("|- ");
             
-            // 印出 Process 資訊
-            printf("[%5d] %-15s (State: %c, Mem: %6ld KB)\n", 
-                   procs[i].pid, procs[i].comm, procs[i].state, mem_kb);
-
-            // 遞迴尋找並印出子行程
-            print_process_tree(procs, count, procs[i].pid, depth + 1);
+            // 印出各 Process 資訊 (使用組員定義的 rss_kb, comm, state)
+            printf("[%5d] %-15s (State: %c, Mem: %6lu KB)\n",
+                   list->procs[i].pid, list->procs[i].comm,
+                   list->procs[i].state, list->procs[i].rss_kb);
+            
+            // 遞迴尋找子行程
+            print_process_tree(list, list->procs[i].pid, depth + 1);
         }
     }
 }
 
-// 顯示全域系統狀態 (CPU/Mem)
-void print_system_header() {
-    diag_sys_stat_t sys_stat;
-    if (diag_sys_get_stat(&sys_stat) == 0) {
-        uint64_t total_cpu = sys_stat.cpu_user + sys_stat.cpu_nice + sys_stat.cpu_system + sys_stat.cpu_idle;
-        // 簡單的 CPU 使用率計算 (實際 htop 需要記錄前一次狀態來算 delta，這邊提供輕量版概念)
-        printf("\033[1;32m--- System Diagnostics: Lightweight Process Analyzer ---\033[0m\n");
-        printf("Memory: %lu KB Total / %lu KB Free / %lu KB Available\n", 
-               sys_stat.mem_total, sys_stat.mem_free, sys_stat.mem_available);
-        printf("CPU Ticks: User %lu | Sys %lu | Idle %lu\n", 
-               sys_stat.cpu_user, sys_stat.cpu_system, sys_stat.cpu_idle);
-        printf("----------------------------------------------------------\n");
-    }
-}
-
-int main(int argc, char **argv) {
-    // 註冊中斷訊號，讓程式可以優雅退出
+int main() {
     signal(SIGINT, handle_sigint);
 
-    // 隱藏游標
-    printf("\033[?25l");
+    // 準備 CPU 狀態計算 (需要兩次快照算 delta)
+    diag_cpu_snapshot_t cpu_prev, cpu_curr;
+    if (diag_cpu_read_snapshot(&cpu_prev) < 0) {
+        fprintf(stderr, "Failed to read initial CPU snapshot.\n");
+        return 1;
+    }
+
+    printf("\033[?25l"); // 隱藏游標
 
     while (keep_running) {
-        diag_proc_stat_t *procs = NULL;
-        size_t count = 0;
-
-        if (diag_proc_get_all(&procs, &count) < 0) {
-            fprintf(stderr, "Failed to read process information from libdiag.\n");
-            break;
+        // 1. 抓取最新的 CPU 快照並計算使用率
+        diag_cpu_read_snapshot(&cpu_curr);
+        unsigned long long t_curr = diag_cpu_total(&cpu_curr);
+        unsigned long long t_prev = diag_cpu_total(&cpu_prev);
+        unsigned long long i_curr = diag_cpu_idle(&cpu_curr);
+        unsigned long long i_prev = diag_cpu_idle(&cpu_prev);
+        
+        double cpu_usage = 0.0;
+        unsigned long long total_delta = t_curr - t_prev;
+        unsigned long long idle_delta = i_curr - i_prev;
+        if (total_delta > 0) {
+            cpu_usage = 100.0 * (double)(total_delta - idle_delta) / (double)total_delta;
         }
+        cpu_prev = cpu_curr; // 更新快照以供下一秒使用
 
-        // 清空螢幕並將游標移至左上角
+        // 2. 收集所有 Process 資訊
+        proc_list_t list = {NULL, 0, 0};
+        diag_proc_foreach(collect_proc_cb, &list);
+
+        // 3. 渲染畫面 (清除畫面並移到左上角)
         printf("\033[2J\033[H");
+        printf("\033[1;32m--- Lightweight Process Analyzer (ptop) ---\033[0m\n");
+        printf("Global CPU Usage: \033[1;33m%.1f%%\033[0m\n", cpu_usage);
+        printf("Total Processes: %zu\n", list.count);
+        printf("-------------------------------------------\n");
 
-        // 印出系統總覽
-        print_system_header();
-
-        // 尋找並印出所有的 Root Processes 及其子行程
-        for (size_t i = 0; i < count; ++i) {
-            if (is_root_process(procs, count, procs[i].ppid)) {
-                // 發現 Root Process，將其視為樹的起點印出 (depth = 0)
-                // 為了避免重複印出，我們可以暫時把 parent_pid 假定為該 ppid 來啟動遞迴
-                // 但要先印出自己，再遞迴子行程
-                long mem_kb = (procs[i].rss * 4096) / 1024;
-                printf("\033[1;36m[%5d] %-15s\033[0m (State: %c, Mem: %6ld KB)\n", 
-                       procs[i].pid, procs[i].comm, procs[i].state, mem_kb);
-                
-                print_process_tree(procs, count, procs[i].pid, 1);
+        // 4. 畫出樹狀圖
+        for (size_t i = 0; i < list.count; ++i) {
+            if (is_root_process(&list, list.procs[i].ppid)) {
+                // 印出 Root 行程
+                printf("\033[1;36m[%5d] %-15s\033[0m (State: %c, Mem: %6lu KB)\n",
+                       list.procs[i].pid, list.procs[i].comm,
+                       list.procs[i].state, list.procs[i].rss_kb);
+                // 從此節點開始往下找子行程
+                print_process_tree(&list, list.procs[i].pid, 1);
             }
         }
 
-        diag_proc_free_all(procs);
+        // 釋放本次收集的記憶體
+        free(list.procs);
 
-        // 每 2 秒刷新一次
-        sleep(2);
+        // 暫停 1 秒後刷新
+        sleep(1);
     }
 
-    // 恢復游標並清理螢幕
+    // 恢復游標
     printf("\033[?25h\n");
-    printf("Analyzer exited cleanly.\n");
-
+    printf("Exiting Analyzer...\n");
     return 0;
 }
