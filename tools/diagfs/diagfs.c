@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#define COLOR_RED     "\033[31m"
+#define COLOR_YELLOW  "\033[33m"
+#define COLOR_GREEN   "\033[32m"
+#define COLOR_RESET   "\033[0m"
+
 /* 計算空間使用百分比 */
 static unsigned long calc_used_percent(const diag_fs_info_t *fs)
 {
@@ -30,6 +35,59 @@ static void print_separator(void)
     printf("------------------------------------------\n");
 }
 
+
+static void scan_all_mounts(void)
+{
+    FILE *fp;
+    char line[256];
+    char dev[128], path[128], fstype[64], opts[128];
+    int dump, pass;
+
+    fp = fopen("/proc/mounts", "r");
+    if (!fp) {
+        printf("無法讀取 /proc/mounts\n");
+        return;
+    }
+
+    while (fgets(line, sizeof(line), fp)) {
+        sscanf(line, "%s %s %s %s %d %d",
+               dev, path, fstype, opts, &dump, &pass);
+
+        /* 跳過虛擬檔案系統 */
+        if (strcmp(fstype, "proc") == 0 ||
+            strcmp(fstype, "sysfs") == 0 ||
+            strcmp(fstype, "devtmpfs") == 0 ||
+            strcmp(fstype, "cgroup") == 0 ||
+            strcmp(fstype, "cgroup2") == 0 ||
+            strcmp(fstype, "devpts") == 0 ||
+            strcmp(fstype, "mqueue") == 0 ||
+            strcmp(fstype, "hugetlbfs") == 0 ||
+            strcmp(fstype, "tmpfs") == 0)
+            continue;
+
+        /* 跳過檔案路徑（不是目錄的掛載點）*/
+        if (strncmp(path, "/proc/", 6) == 0 ||
+            strncmp(path, "/sys/", 5) == 0 ||
+            strncmp(path, "/etc/", 5) == 0 ||
+            strncmp(path, "/home/", 6) == 0)
+            continue;
+
+        diag_fs_info_t fs;
+        int ret = diag_fs_read(path, &fs);
+        if (ret != DIAG_OK)
+            continue;
+
+        printf("\n路徑        : %s\n", fs.path);
+        printf("檔案系統類型: %s\n", diag_fs_type_name(fs.fs_type));
+        printf("[空間使用] 已使用 %lu KB / 總計 %lu KB (%lu%%)\n",
+               fs.used_kb, fs.total_kb, calc_used_percent(&fs));
+        printf("[inode 使用] %lu%%\n", calc_inode_used_percent(&fs));
+        print_separator();
+    }
+
+    fclose(fp);
+}
+
 int main(int argc, char **argv)
 {
     const char *path = "/";   /* 預設掃描根目錄 */
@@ -45,7 +103,21 @@ int main(int argc, char **argv)
     printf("diagfs - Filesystem Health Checker\n");
     print_separator();
 
+    // 讓使用者可以選擇掃描所有掛載點
+    if (argc >= 2 && strcmp(argv[1], "--all") == 0) {
+        printf("diagfs - 掃描所有掛載點\n");
+        print_separator();
+        scan_all_mounts();
+        return 0;
+    }
+
     /* ── 空間與 inode 資訊 ── */
+
+    /* 空間使用率顏色 */
+    unsigned long used_pct = calc_used_percent(&fs);
+    const char *space_color = used_pct >= 90 ? COLOR_RED :
+                            used_pct >= 70 ? COLOR_YELLOW : COLOR_GREEN;
+
     ret = diag_fs_read(path, &fs);
     if (ret != DIAG_OK) {
         printf("Error: 無法讀取 %s：%s\n", path, diag_strerror(ret));
@@ -58,14 +130,19 @@ int main(int argc, char **argv)
 
     printf("[空間使用]\n");
     printf("  總容量    : %lu KB\n", fs.total_kb);
-    printf("  已使用    : %lu KB (%lu%%)\n", fs.used_kb, calc_used_percent(&fs));
+    printf("  已使用    : %lu KB (%s%lu%%%s)\n", fs.used_kb, space_color, used_pct, COLOR_RESET);
     printf("  可用空間  : %lu KB\n", fs.avail_kb);
     print_separator();
+
+    /* inode 使用率顏色 */
+    unsigned long inode_pct = calc_inode_used_percent(&fs);
+    const char *inode_color = inode_pct >= 90 ? COLOR_RED :
+                            inode_pct >= 70 ? COLOR_YELLOW : COLOR_GREEN;
 
     printf("[inode 使用]\n");
     printf("  inode 總數: %lu\n", fs.files_total);
     printf("  inode 剩餘: %lu\n", fs.files_free);
-    printf("  inode 使用: %lu%%\n", calc_inode_used_percent(&fs));
+    printf("  inode 使用: %s%lu%%%s\n", inode_color, inode_pct, COLOR_RESET);
 
     /* 警告 inode 快滿 */
     if (calc_inode_used_percent(&fs) >= 90) {
@@ -99,3 +176,4 @@ int main(int argc, char **argv)
     print_separator();
     return 0;
 }
+
