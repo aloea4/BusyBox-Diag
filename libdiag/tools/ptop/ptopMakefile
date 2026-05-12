@@ -1,118 +1,65 @@
-CC := gcc
-CFLAGS := -Wall -Wextra -std=c99 -Iinclude -Itools/ptop
-AR := ar
-ARFLAGS := rcs
+# tools/ptop/Makefile
+# Dual build rules:
+#   - Standalone build: produce tools/ptop/ptop binary (uses main())
+#   - BusyBox build:    produce ptop applet objects (uses ptop_main())
 
-# ----------------------------
-# libdiag sources
-# ----------------------------
-LIBDIAG_SRC := \
-	src/libdiag/diag_reader.c \
-	src/libdiag/diag_parse.c \
-	src/libdiag/diag_proc.c \
-	src/libdiag/diag_fs.c \
-	src/libdiag/diag_net.c
+# ---------------------------------------------------------
+# BusyBox build integration (applets)
+# ---------------------------------------------------------
+obj-$(CONFIG_PTOP) += ptop_applet.o
 
-LIBDIAG_OBJ := $(LIBDIAG_SRC:.c=.o)
-LIBDIAG_A := libdiag.a
+ptop_applet-y := \
+    ptop_applet.o \
+    ptop_snapshot.o \
+    ptop_delta.o \
+    ptop_tree.o \
+    ptop_filter.o \
+    ptop_policy.o \
+    ptop_render_tty.o \
+    ptop_output.o \
+    ptop_signal.o
 
-# ----------------------------
-# ptop tool sources (standalone build)
-# ----------------------------
-PTOP_SRC := \
-	tools/ptop/ptop.c \
-	tools/ptop/ptop_snapshot.c \
-	tools/ptop/ptop_delta.c \
-	tools/ptop/ptop_tree.c \
-	tools/ptop/ptop_filter.c \
-	tools/ptop/ptop_policy.c \
-	tools/ptop/ptop_render_tty.c \
-	tools/ptop/ptop_output.c \
-	tools/ptop/ptop_signal.c
+# BusyBox compile flags for applet mode
+CFLAGS_ptop_applet.o := -DBUSYBOX
 
-PTOP_OBJ := $(PTOP_SRC:.c=.o)
-PTOP_BIN := tools/ptop/ptop
 
-# ----------------------------
-# example programs
-# ----------------------------
-EXAMPLES := \
-	examples/test_proc \
-	examples/test_fs \
-	examples/test_net \
-	examples/test_parse \
-	examples/test_cpu \
-	examples/test_fiemap \
-	examples/test_errors \
-	examples/test_fixtures
+# ---------------------------------------------------------
+# Standalone build integration (optional local binary)
+# ---------------------------------------------------------
+# Only built when you run:
+#   make -C tools/ptop standalone
+# or when your top-level Makefile calls it.
 
-.PHONY: all clean test ptop
+PTOP_STANDALONE_BIN := ptop
 
-# default build
-all: $(LIBDIAG_A) $(PTOP_BIN) $(EXAMPLES)
+PTOP_STANDALONE_OBJ := \
+    ptop_standalone.o \
+    ptop_snapshot.o \
+    ptop_delta.o \
+    ptop_tree.o \
+    ptop_filter.o \
+    ptop_policy.o \
+    ptop_render_tty.o \
+    ptop_output.o \
+    ptop_signal.o
 
-# ----------------------------
-# build libdiag static library
-# ----------------------------
-$(LIBDIAG_A): $(LIBDIAG_OBJ)
-	$(AR) $(ARFLAGS) $@ $^
+# Standalone compile flags: NO -DBUSYBOX
+CFLAGS_ptop_standalone.o :=
 
-# ----------------------------
-# build ptop standalone binary
-# ----------------------------
-$(PTOP_BIN): $(PTOP_OBJ) $(LIBDIAG_A)
-	$(CC) $(CFLAGS) $^ -o $@
+# Build standalone executable
+standalone: $(PTOP_STANDALONE_BIN)
 
-ptop: $(PTOP_BIN)
+$(PTOP_STANDALONE_BIN): $(PTOP_STANDALONE_OBJ)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-# ----------------------------
-# build examples
-# ----------------------------
-examples/test_proc: examples/test_proc.o $(LIBDIAG_A)
-	$(CC) $(CFLAGS) $^ -o $@
+# Compile ptop.c into standalone object
+ptop_standalone.o: ptop.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(CFLAGS_ptop_standalone.o) -c -o $@ $<
 
-examples/test_fs: examples/test_fs.o $(LIBDIAG_A)
-	$(CC) $(CFLAGS) $^ -o $@
+# Compile ptop.c into BusyBox applet object
+ptop_applet.o: ptop.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(CFLAGS_ptop_applet.o) -c -o $@ $<
 
-examples/test_net: examples/test_net.o $(LIBDIAG_A)
-	$(CC) $(CFLAGS) $^ -o $@
-
-examples/test_parse: examples/test_parse.o $(LIBDIAG_A)
-	$(CC) $(CFLAGS) $^ -o $@
-
-examples/test_cpu: examples/test_cpu.o $(LIBDIAG_A)
-	$(CC) $(CFLAGS) $^ -o $@
-
-examples/test_fiemap: examples/test_fiemap.o $(LIBDIAG_A)
-	$(CC) $(CFLAGS) $^ -o $@
-
-examples/test_errors: examples/test_errors.o $(LIBDIAG_A)
-	$(CC) $(CFLAGS) $^ -o $@
-
-examples/test_fixtures: examples/test_fixtures.o $(LIBDIAG_A)
-	$(CC) $(CFLAGS) $^ -o $@
-
-# ----------------------------
-# generic compile rule
-# ----------------------------
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# ----------------------------
-# test target
-# ----------------------------
-test: all
-	./examples/test_proc
-	./examples/test_fs
-	./examples/test_net
-	./examples/test_parse
-	./examples/test_cpu
-	./examples/test_fiemap
-	./examples/test_errors
-	./examples/test_fixtures
-
-# ----------------------------
-# clean
-# ----------------------------
-clean:
-	rm -f $(LIBDIAG_OBJ) $(PTOP_OBJ) examples/*.o $(LIBDIAG_A) $(EXAMPLES) $(PTOP_BIN)
+# cleanup standalone artifacts
+clean-standalone:
+	rm -f $(PTOP_STANDALONE_BIN) ptop_standalone.o
