@@ -1,109 +1,85 @@
-/* tools/ptop.c */
+#include "libbb.h"
+#include "ptop.h"
 
-#include "libbb.h"              // BusyBox 內建常用工具函式 (getopt, bb_error_msg 等)
-#include <signal.h>             // signal()
-#include <stdio.h>              // printf()
-#include <stdlib.h>             // malloc/free/realloc
-#include <unistd.h>             // sleep()
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include "libdiag/diag_proc.h"  // 你的行程資訊模組
+static const char ptop_usage[] ALIGN1 =
+    "ptop [OPTIONS]\n"
+    "\n"
+    "Snapshot-based Linux process monitoring tool.\n"
+    "\n"
+    "Options:\n"
+    "  -d SEC     refresh delay seconds (default 1)\n"
+    "  -n COUNT   refresh COUNT times then exit\n"
+    "  -b         batch mode (no ANSI, one-shot output)\n"
+    "  -1         once (single snapshot)\n"
+    "  -t N       show top N processes (default all)\n"
+    "  -s MODE    sort mode: pid|cpu|rss (default pid)\n"
+    "  -h         help\n";
 
-static volatile sig_atomic_t keep_running = 1;
-
-/* Ctrl+C 時設定旗標，讓 while loop 自然退出 */
-static void handle_sigint(int sig)
+static ptop_sort_mode_t parse_sort_mode(const char *s)
 {
-    (void)sig;
-    keep_running = 0;
+    if (!strcmp(s, "pid")) return PTOP_SORT_PID;
+    if (!strcmp(s, "cpu")) return PTOP_SORT_CPU;
+    if (!strcmp(s, "rss")) return PTOP_SORT_RSS;
+
+    bb_error_msg_and_die("invalid sort mode: %s", s);
 }
 
-/* 動態陣列結構 */
-typedef struct {
-    diag_proc_info_t *procs;
-    size_t count;
-    size_t capacity;
-} proc_list_t;
-
-/* callback: 收集 process */
-static int collect_proc_cb(const diag_proc_info_t *info, void *user)
+int ptop_sort_apply(ptop_delta_result_t *delta,
+                    const ptop_config_t *cfg)
 {
-    proc_list_t *list = (proc_list_t *)user;
+    (void)delta;
+    (void)cfg;
 
-    if (list->count >= list->capacity) {
-        size_t new_capacity = (list->capacity == 0) ? 128 : list->capacity * 2;
-
-        diag_proc_info_t *new_procs =
-            realloc(list->procs, new_capacity * sizeof(diag_proc_info_t));
-
-        if (!new_procs)
-            return -1;
-
-        list->procs = new_procs;
-        list->capacity = new_capacity;
-    }
-
-    list->procs[list->count++] = *info;
+    /* TODO: implement sorting engine */
     return 0;
 }
 
-/* 判斷 root process */
-static int is_root_process(proc_list_t *list, int ppid)
-{
-    if (ppid == 0 || ppid == 1 || ppid == 2)
-        return 1;
-
-    for (size_t i = 0; i < list->count; i++) {
-        if (list->procs[i].pid == ppid)
-            return 0;
-    }
-
-    return 1;
-}
-
-/* 遞迴印出 process tree */
-static void print_process_tree(proc_list_t *list, int parent_pid, int depth)
-{
-    for (size_t i = 0; i < list->count; i++) {
-        if (list->procs[i].ppid == parent_pid) {
-
-            for (int d = 0; d < depth; d++)
-                printf("  | ");
-
-            if (depth > 0)
-                printf("|- ");
-
-            printf("[%5d] %-15s (State: %c, Mem: %6lu KB)\n",
-                   list->procs[i].pid,
-                   list->procs[i].comm,
-                   list->procs[i].state,
-                   list->procs[i].rss_kb);
-
-            print_process_tree(list, list->procs[i].pid, depth + 1);
-        }
-    }
-}
-
-/* BusyBox applet 入口 */
 int ptop_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int ptop_main(int argc, char **argv)
 {
-    int delay = 1;       // 預設 1 秒刷新
-    int loops = -1;      // 預設無限循環
+    ptop_config_t cfg;
+    cfg.delay_sec = 1;
+    cfg.loops = -1;
+    cfg.mode = PTOP_MODE_INTERACTIVE;
+    cfg.sort_mode = PTOP_SORT_PID;
+    cfg.tree = 0;
+    cfg.top_n = 0;
 
-    /* getopt: -d 秒數, -n 次數, -h */
     int opt;
-    while ((opt = getopt(argc, argv, "d:n:h")) != -1) {
+    while ((opt = getopt(argc, argv, "d:n:bh1t:s:")) != -1) {
         switch (opt) {
         case 'd':
-            delay = atoi(optarg);
-            if (delay <= 0)
+            cfg.delay_sec = atoi(optarg);
+            if (cfg.delay_sec <= 0)
                 bb_error_msg_and_die("invalid delay: %s", optarg);
             break;
 
         case 'n':
-            loops = atoi(optarg);
-            if (loops <= 0)
-                bb_error_msg_and_die("invalid loop count: %s", optarg);
+            cfg.loops = atoi(optarg);
+            if (cfg.loops <= 0)
+                bb_error_msg_and_die("invalid count: %s", optarg);
+            break;
+
+        case 'b':
+            cfg.mode = PTOP_MODE_BATCH;
+            break;
+
+        case '1':
+            cfg.loops = 1;
+            break;
+
+        case 't':
+            cfg.top_n = atoi(optarg);
+            if (cfg.top_n < 0)
+                bb_error_msg_and_die("invalid top: %s", optarg);
+            break;
+
+        case 's':
+            cfg.sort_mode = parse_sort_mode(optarg);
             break;
 
         case 'h':
@@ -112,91 +88,61 @@ int ptop_main(int argc, char **argv)
         }
     }
 
-    /* 註冊 Ctrl+C */
-    signal(SIGINT, handle_sigint);
+    ptop_signal_init();
 
-    /* CPU snapshot init */
-    diag_cpu_snapshot_t cpu_prev, cpu_curr;
-    if (diag_cpu_read_snapshot(&cpu_prev) < 0) {
-        bb_error_msg("Failed to read initial CPU snapshot");
+    int interactive = isatty(STDOUT_FILENO) && (cfg.mode == PTOP_MODE_INTERACTIVE);
+
+    if (interactive)
+        ptop_terminal_hide_cursor();
+
+    ptop_snapshot_t prev, curr;
+    ptop_delta_result_t delta;
+
+    if (ptop_snapshot_collect(&prev) < 0) {
+        bb_error_msg("failed to collect initial snapshot");
         return 1;
     }
 
-    /* 隱藏游標 */
-    printf("\033[?25l");
-    fflush(stdout);
+    /* main loop */
+    while (!ptop_should_exit() && (cfg.loops != 0)) {
 
-    while (keep_running && (loops != 0)) {
+        sleep(cfg.delay_sec);
 
-        /* 讀 CPU snapshot */
-        if (diag_cpu_read_snapshot(&cpu_curr) < 0) {
-            bb_error_msg("Failed to read CPU snapshot");
+        if (ptop_snapshot_collect(&curr) < 0) {
+            bb_error_msg("failed to collect snapshot");
             break;
         }
 
-        unsigned long long t_curr = diag_cpu_total(&cpu_curr);
-        unsigned long long t_prev = diag_cpu_total(&cpu_prev);
-        unsigned long long i_curr = diag_cpu_idle(&cpu_curr);
-        unsigned long long i_prev = diag_cpu_idle(&cpu_prev);
-
-        unsigned long long total_delta = t_curr - t_prev;
-        unsigned long long idle_delta = i_curr - i_prev;
-
-        double cpu_usage = 0.0;
-        if (total_delta > 0) {
-            cpu_usage = 100.0 *
-                        (double)(total_delta - idle_delta) /
-                        (double)total_delta;
-        }
-
-        cpu_prev = cpu_curr;
-
-        /* 收集 process */
-        proc_list_t list;
-        list.procs = NULL;
-        list.count = 0;
-        list.capacity = 0;
-
-        if (diag_proc_foreach(collect_proc_cb, &list) < 0) {
-            bb_error_msg("Failed to collect process list");
-            free(list.procs);
+        if (ptop_delta_compute(&prev, &curr, &delta) < 0) {
+            bb_error_msg("failed to compute delta");
+            ptop_snapshot_free(&curr);
             break;
         }
 
-        /* 清畫面 */
-        printf("\033[2J\033[H");
-        printf("\033[1;32m--- Lightweight Process Analyzer (ptop) ---\033[0m\n");
-        printf("Global CPU Usage: \033[1;33m%.1f%%\033[0m\n", cpu_usage);
-        printf("Total Processes: %zu\n", list.count);
-        printf("-------------------------------------------\n");
+        ptop_filter_apply(&delta, &cfg);
+        ptop_sort_apply(&delta, &cfg);
+        ptop_policy_apply(&delta, &cfg);
 
-        /* 印 tree */
-        for (size_t i = 0; i < list.count; i++) {
-            if (is_root_process(&list, list.procs[i].ppid)) {
-                printf("\033[1;36m[%5d] %-15s\033[0m (State: %c, Mem: %6lu KB)\n",
-                       list.procs[i].pid,
-                       list.procs[i].comm,
-                       list.procs[i].state,
-                       list.procs[i].rss_kb);
-
-                print_process_tree(&list, list.procs[i].pid, 1);
-            }
+        if (cfg.mode == PTOP_MODE_BATCH) {
+            ptop_output_batch(&curr, &delta, &cfg);
+            break;
+        } else {
+            ptop_render_tty(&curr, &delta, &cfg);
         }
 
-        free(list.procs);
+        ptop_delta_free(&delta);
+        ptop_snapshot_free(&prev);
 
-        fflush(stdout);
+        prev = curr;
 
-        /* -n 次數控制 */
-        if (loops > 0)
-            loops--;
-
-        sleep(delay);
+        if (cfg.loops > 0)
+            cfg.loops--;
     }
 
-    /* 恢復游標 */
-    printf("\033[?25h\n");
-    printf("Exiting Analyzer...\n");
+    ptop_snapshot_free(&prev);
+
+    if (interactive)
+        ptop_terminal_restore();
 
     return 0;
 }
