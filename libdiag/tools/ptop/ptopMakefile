@@ -1,1 +1,118 @@
+CC := gcc
+CFLAGS := -Wall -Wextra -std=c99 -Iinclude -Itools/ptop
+AR := ar
+ARFLAGS := rcs
 
+# ----------------------------
+# libdiag sources
+# ----------------------------
+LIBDIAG_SRC := \
+	src/libdiag/diag_reader.c \
+	src/libdiag/diag_parse.c \
+	src/libdiag/diag_proc.c \
+	src/libdiag/diag_fs.c \
+	src/libdiag/diag_net.c
+
+LIBDIAG_OBJ := $(LIBDIAG_SRC:.c=.o)
+LIBDIAG_A := libdiag.a
+
+# ----------------------------
+# ptop tool sources (standalone build)
+# ----------------------------
+PTOP_SRC := \
+	tools/ptop/ptop.c \
+	tools/ptop/ptop_snapshot.c \
+	tools/ptop/ptop_delta.c \
+	tools/ptop/ptop_tree.c \
+	tools/ptop/ptop_filter.c \
+	tools/ptop/ptop_policy.c \
+	tools/ptop/ptop_render_tty.c \
+	tools/ptop/ptop_output.c \
+	tools/ptop/ptop_signal.c
+
+PTOP_OBJ := $(PTOP_SRC:.c=.o)
+PTOP_BIN := tools/ptop/ptop
+
+# ----------------------------
+# example programs
+# ----------------------------
+EXAMPLES := \
+	examples/test_proc \
+	examples/test_fs \
+	examples/test_net \
+	examples/test_parse \
+	examples/test_cpu \
+	examples/test_fiemap \
+	examples/test_errors \
+	examples/test_fixtures
+
+.PHONY: all clean test ptop
+
+# default build
+all: $(LIBDIAG_A) $(PTOP_BIN) $(EXAMPLES)
+
+# ----------------------------
+# build libdiag static library
+# ----------------------------
+$(LIBDIAG_A): $(LIBDIAG_OBJ)
+	$(AR) $(ARFLAGS) $@ $^
+
+# ----------------------------
+# build ptop standalone binary
+# ----------------------------
+$(PTOP_BIN): $(PTOP_OBJ) $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $^ -o $@
+
+ptop: $(PTOP_BIN)
+
+# ----------------------------
+# build examples
+# ----------------------------
+examples/test_proc: examples/test_proc.o $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $^ -o $@
+
+examples/test_fs: examples/test_fs.o $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $^ -o $@
+
+examples/test_net: examples/test_net.o $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $^ -o $@
+
+examples/test_parse: examples/test_parse.o $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $^ -o $@
+
+examples/test_cpu: examples/test_cpu.o $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $^ -o $@
+
+examples/test_fiemap: examples/test_fiemap.o $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $^ -o $@
+
+examples/test_errors: examples/test_errors.o $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $^ -o $@
+
+examples/test_fixtures: examples/test_fixtures.o $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $^ -o $@
+
+# ----------------------------
+# generic compile rule
+# ----------------------------
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# ----------------------------
+# test target
+# ----------------------------
+test: all
+	./examples/test_proc
+	./examples/test_fs
+	./examples/test_net
+	./examples/test_parse
+	./examples/test_cpu
+	./examples/test_fiemap
+	./examples/test_errors
+	./examples/test_fixtures
+
+# ----------------------------
+# clean
+# ----------------------------
+clean:
+	rm -f $(LIBDIAG_OBJ) $(PTOP_OBJ) examples/*.o $(LIBDIAG_A) $(EXAMPLES) $(PTOP_BIN)
