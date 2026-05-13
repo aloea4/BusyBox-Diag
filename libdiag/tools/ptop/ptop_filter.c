@@ -1,42 +1,22 @@
 #include "ptop.h"
-#include <string.h>
-#include <stdlib.h>
 
-/*
- * Toybox-style behavior:
- * - filters are applied in-place
- * - stable, predictable
- */
-
-static int match_pid(pid_t pid, const ptop_filter_t *f)
+int ptop_filter_apply(ptop_delta_result_t *res, const ptop_config_t *cfg)
 {
-    if (!f->pid) return 1;
-    return pid == f->pid;
-}
-
-static int match_state(char state, const ptop_filter_t *f)
-{
-    if (!f->state) return 1;
-    return state == f->state;
-}
-
-void ptop_filter_apply(ptop_delta_result_t *res, const ptop_config_t *cfg)
-{
-    if (!res || !cfg) return;
+    if (!res || !cfg || !res->items)
+        return -1;
 
     size_t w = 0;
-
     for (size_t i = 0; i < res->count; i++) {
-        ptop_process_t *p = &res->proc[i];
+        const ptop_proc_view_t *p = &res->items[i];
 
-        if (!match_pid(p->pid, &cfg->filter))
+        if (cfg->filter_pid >= 0 && p->pid != cfg->filter_pid)
+            continue;
+        if (cfg->filter_state != 0 && p->state != cfg->filter_state)
             continue;
 
-        if (!match_state(p->state, &cfg->filter))
-            continue;
-
-        res->proc[w++] = *p;
+        res->items[w++] = *p;
     }
 
     res->count = w;
+    return 0;
 }
