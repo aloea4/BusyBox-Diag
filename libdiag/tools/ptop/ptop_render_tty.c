@@ -5,7 +5,8 @@ int ptop_render_tty(const ptop_snapshot_t *snap,
                     const ptop_delta_result_t *delta,
                     const ptop_config_t *cfg)
 {
-    (void)cfg;
+    if (ptop_terminal_resized())
+        ptop_clear_resize_flag();
 
     printf("\033[2J\033[H");
 
@@ -15,6 +16,13 @@ int ptop_render_tty(const ptop_snapshot_t *snap,
 
     printf("processes: %zu\n", snap->proc_count);
     printf("system cpu: %.1f%%\n", delta->system_cpu_percent);
+    printf("memory: total=%luKB free=%luKB buffers=%luKB cached=%luKB swap=%luKB/%luKB\n",
+           snap->mem_total_kb,
+           snap->mem_free_kb,
+           snap->buffers_kb,
+           snap->cached_kb,
+           snap->swap_free_kb,
+           snap->swap_total_kb);
     printf("---------------------------------------------\n");
 
     size_t limit = delta->count;
