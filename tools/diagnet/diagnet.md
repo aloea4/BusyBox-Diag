@@ -1,29 +1,49 @@
-# diagnet — Network Connection Monitor
+# diagnet — Procfs-based Linux Network Connection Monitoring Tool
 
-`diagnet` 是 BusyBox-Diag 系統診斷工具集的一員，從 Linux `/proc/net/tcp` 與 `/proc/net/udp` 讀取即時連線資訊，提供連線列表、狀態分佈統計、可疑監聽 Port 偵測等功能，並支援以表格或 JSON 格式輸出。底層的 `/proc` 解析由共用模組 [libdiag](../../libdiag/) 提供，與同專案的 `diagps`、`diagfs` 共用同一份資料收集邏輯。
+`diagnet` 是 BusyBox-Diag 系統診斷工具集中的 **procfs-based Linux network connection monitoring tool**。它透過 Linux `procfs` 匯出的 TCP/UDP connection metadata（`/proc/net/tcp` 與 `/proc/net/udp`）觀察目前系統中的 network connection state，提供 connection listing、TCP state summary、listening port observation、heuristic suspicious port observation，並支援 table / raw / JSON 三種輸出與 shell pipeline 串接。
+
+底層 `/proc` 解析由共用模組 [libdiag](../../libdiag/) 提供 measurement layer；`diagnet` 本身負責 connection analysis、filtering、policy 與 presentation。
+
+`diagnet` 不主動探測遠端主機，也不擷取封包，也不宣稱進行入侵偵測。其 `--suspicious` 功能僅代表基於啟發式規則的可疑監聽 port 觀察（heuristic-based suspicious listening port observation）。
 
 ---
 
-## Features
+## Architecture (Four Layers)
 
-- **TCP connection listing** — 解析 `/proc/net/tcp`，顯示本地/遠端 IP:Port 與連線狀態。
-- **State distribution stats** — 統計 `ESTABLISHED`、`LISTEN`、`TIME_WAIT` 等各狀態數量。
-- **UDP support** — 解析 `/proc/net/udp`，與 TCP 共用同一處理流程。
-- **Suspicious port detection** — 比對內建白名單，標記非常見服務 Port 的監聽行為。
-- **JSON output** — 結構化輸出方便與其他工具透過 UNIX pipe 串接。
+```text
+Layer 1: Measurement   libdiag — 讀 /proc/net/{tcp,udp}、解析欄位、封裝 diag_net_conn_t
+Layer 2: Analysis      diagnet_analyze.c / diagnet_collect.c — 計數、histogram、串接 filter
+Layer 3: Policy        diagnet_policy.c — heuristic flags（suspicious_port / public_listen / many_*）
+Layer 4: Presentation  diagnet_output.c — table / raw / json 三種輸出
+```
+
+`diagnet.c` 僅做 `main()`、`getopt_long` 與流程控制；CLI 旗標統一在此解析。
+
+---
+
+## Portability Boundary
+
+`diagnet` 採用 POSIX-style command-line design，但 backend 為 Linux-specific。
+
+| Portable / POSIX-style | Linux-specific backend |
+| --- | --- |
+| stdout / stderr separation | `/proc/net/tcp` |
+| stable exit code | `/proc/net/udp` |
+| table / raw / JSON output | Linux procfs connection metadata |
+| shell pipeline integration | Linux TCP state representation |
+
+也就是：介面是 UNIX-style，資料來源是 Linux procfs。
 
 ---
 
 ## Build
-
-`diagnet` 的編譯流程使用本目錄下獨立的 `Makefile`：
 
 ```bash
 cd tools/diagnet
 make            # 自動 sub-make ../../libdiag 後連結 diagnet
 ```
 
-編譯產生的執行檔位於 `tools/diagnet/diagnet`。預設使用以下 flag（見 [Makefile](Makefile)）：
+預設 flag（見 [Makefile](Makefile)）：
 
 ```text
 gcc -Wall -Wextra -std=c99 -I../../libdiag/include
@@ -34,9 +54,13 @@ gcc -Wall -Wextra -std=c99 -I../../libdiag/include
 ## Synopsis
 
 ```text
-diagnet [--proto tcp|udp|all] [--state STATE] [--stats]
-        [--suspicious] [--whitelist PORTS] [--output table|json]
-        [-h|--help]
+diagnet [--proto tcp|udp|all] [--state STATE | --listen]
+        [--local-port PORT] [--remote-port PORT]
+        [--local-addr ADDR] [--remote-addr ADDR]
+        [--suspicious] [--whitelist PORTS]
+        [--sort state|local-port|remote-port]
+        [--output table|raw|json] [--no-header]
+        [--stats] [--quiet] [-h|--help]
 ```
 
 ---
@@ -46,11 +70,19 @@ diagnet [--proto tcp|udp|all] [--state STATE] [--stats]
 | Option | Argument | 說明 |
 | --- | --- | --- |
 | `--proto` | `tcp` / `udp` / `all` | 過濾協定，預設 `all` |
-| `--state` | TCP 狀態名 | 僅顯示指定狀態（如 `ESTABLISHED`、`LISTEN`、`TIME_WAIT`） |
-| `--stats` | — | 僅輸出狀態分佈摘要，不列出每條連線 |
-| `--suspicious` | — | 僅列出可疑監聽 Port |
-| `--whitelist` | `PORT[,PORT...]` | 額外加入白名單的 Port，逗號分隔（例 `8888,9090`） |
-| `--output` | `table` / `json` | 輸出格式，預設 `table` |
+| `--state` | TCP state name | 僅顯示指定狀態；無效值 → exit 2 |
+| `--listen` | — | `--state LISTEN` 的捷徑；與 `--state` 互斥 |
+| `--local-port` | `1..65535` | 過濾本地 port |
+| `--remote-port` | `1..65535` | 過濾遠端 port |
+| `--local-addr` | dotted IPv4 | 字串相等比對本地位址 |
+| `--remote-addr` | dotted IPv4 | 字串相等比對遠端位址 |
+| `--suspicious` | — | 僅列出 heuristic flag 命中的監聽 port |
+| `--whitelist` | `PORT[,PORT...]` | 額外加入白名單，逗號分隔 |
+| `--sort` | `state` / `local-port` / `remote-port` | 結果排序 |
+| `--output` | `table` / `raw` / `json` | 輸出格式，預設 `table` |
+| `--no-header` | — | 跳過 table / raw 的標題列 |
+| `--stats` | — | 僅輸出 state distribution（streaming，不保存 records） |
+| `--quiet` | — | 抑制 stderr 的全域 warning |
 | `-h`, `--help` | — | 顯示使用說明後結束 |
 
 ---
@@ -59,67 +91,82 @@ diagnet [--proto tcp|udp|all] [--state STATE] [--stats]
 
 ### Table（預設）
 
-預設輸出對齊的純文字表格，可疑連線於行尾以 `[WARNING]` 標記：
-
 ```text
-Proto Local Address    Port   Remote Address   Port   State
-tcp   127.0.0.1        22     0.0.0.0          0      LISTEN
-tcp   192.168.1.5      54321  93.184.216.34    443    ESTABLISHED
-tcp   0.0.0.0          8080   0.0.0.0          0      LISTEN        [WARNING]
+PROTO LOCAL_ADDR        LPORT  REMOTE_ADDR      RPORT  STATE        FLAGS
+tcp   127.0.0.1         22     0.0.0.0          0      LISTEN       -
+tcp   0.0.0.0           8080   0.0.0.0          0      LISTEN       suspicious_port,public_listen
+udp   0.0.0.0           53     0.0.0.0          0      -            -
 ```
 
-實作細節見 [diagnet.c:199](diagnet.c#L199) 的 `print_table()`。
+UDP 的 STATE 一律顯示 `-`；多重 flag 以逗號連接，無 flag 時顯示 `-`。`--no-header` 可跳過首列。
+
+### Raw（`--output raw`）
+
+同欄位、空白分隔、無對齊、無 header，適合 awk / cut：
+
+```text
+tcp 0.0.0.0 22 0.0.0.0 0 LISTEN -
+tcp 0.0.0.0 8080 0.0.0.0 0 LISTEN suspicious_port,public_listen
+udp 0.0.0.0 53 0.0.0.0 0 - -
+```
+
+```bash
+diagnet --output raw | awk '$6=="LISTEN" {print $2 ":" $3}'
+```
 
 ### JSON（`--output json`）
-
-JSON 物件包含三個欄位：
-
-| Key | 說明 |
-| --- | --- |
-| `connections` | 通過所有過濾條件後的連線陣列，每筆含 `proto`、`local_addr`、`local_port`、`remote_addr`、`remote_port`、`state`、`suspicious` |
-| `summary` | 統計摘要：`total` 與各 TCP 狀態的計數 |
-| `suspicious_ports` | 可疑監聽 Port 的精簡列表（僅 `proto`、`local_addr`、`local_port`、`state`） |
-
-範例：
 
 ```json
 {
   "connections": [
-    {"proto": "tcp", "local_addr": "127.0.0.1", "local_port": 22, "remote_addr": "0.0.0.0", "remote_port": 0, "state": "LISTEN", "suspicious": false}
+    {
+      "protocol": "tcp",
+      "local_address": "0.0.0.0",
+      "local_port": 22,
+      "remote_address": "0.0.0.0",
+      "remote_port": 0,
+      "state": "LISTEN",
+      "flags": ["suspicious_port", "public_listen"]
+    }
   ],
   "summary": {
     "total": 1,
-    "ESTABLISHED": 0,
-    "SYN_SENT": 0,
-    "SYN_RECV": 0,
-    "FIN_WAIT1": 0,
-    "FIN_WAIT2": 0,
-    "TIME_WAIT": 0,
-    "CLOSE": 0,
-    "CLOSE_WAIT": 0,
-    "LAST_ACK": 0,
-    "LISTEN": 1,
-    "CLOSING": 0,
-    "UNKNOWN": 0
+    "tcp": 1,
+    "udp": 0,
+    "states": {
+      "LISTEN": 1
+    }
   },
-  "suspicious_ports": [
-    {"proto": "tcp", "local_addr": "0.0.0.0", "local_port": 8080, "state": "LISTEN"}
+  "warnings": [
+    { "type": "many_time_wait", "message": "many TIME_WAIT sockets observed" }
   ]
 }
 ```
 
-實作細節見 [diagnet.c:233](diagnet.c#L233) 的 `print_json()`。
+注意：
+- 欄位採 `protocol` / `local_address` / `remote_address`（不是 `proto` / `local_addr`）。
+- UDP `state` 一律 `"NONE"`。
+- `summary.states` 只列出實際出現過的狀態。
+- `summary.tcp + summary.udp == summary.total`。
+- 系統級的觀察（如 TIME_WAIT 過多）會列在頂層 `warnings`，而非每筆 connection 的 flag。
+
+```bash
+diagnet --output json | jq '.summary.states'
+diagnet --output json | jq '.connections[] | select(.state=="ESTABLISHED")'
+```
 
 ---
 
-## Suspicious Port Detection
+## Heuristic-based Suspicious Listening Port Observation
 
-一條連線會被標記為 `suspicious` 的條件：
+`diagnet` 提供啟發式可疑監聽 port 觀察，並**不**進行入侵偵測、惡意連線判讀或安全掃描。可能掛載在 `connections[].flags` 的旗標：
 
-1. 連線狀態為 `LISTEN`，且
-2. 其 `local_port` 同時不在內建白名單與 `--whitelist` 自訂白名單中。
+| Flag | 條件 |
+| --- | --- |
+| `suspicious_port` | `state == LISTEN` 且 `local_port` 不在內建白名單 + `--whitelist` 加成 |
+| `public_listen` | `state == LISTEN` 且 `local_address == 0.0.0.0` |
 
-內建白名單（27 個常見服務 Port，定義於 [diagnet.c:11](diagnet.c#L11) `WHITELIST_DEFAULT[]`）：
+內建白名單（27 個常見服務 port，定義於 [diagnet_policy.c](diagnet_policy.c)）：
 
 ```text
 20, 21, 22, 23, 25, 53, 67, 68, 69, 80, 110,
@@ -127,76 +174,115 @@ JSON 物件包含三個欄位：
 636, 993, 995, 3306, 5432, 6379, 27017
 ```
 
-`--whitelist` 為**加成式**擴充，不會覆蓋內建清單。
+`--whitelist` 為加成式擴充，不會覆蓋內建清單。
+
+頂層 `warnings`（聚合觀察，輸出到 stderr 或 JSON `warnings` 陣列；`--quiet` 抑制 stderr）：
+
+| Type | 條件 |
+| --- | --- |
+| `many_time_wait` | TIME_WAIT 計數 ≥ 50 |
+| `many_close_wait` | CLOSE_WAIT 計數 ≥ 50 |
+
+---
+
+## Exit Codes
+
+| Code | 意義 |
+| --- | --- |
+| `0` | 成功，或顯示了 `--help` |
+| `1` | runtime error：`/proc/net/{tcp,udp}` 讀取失敗、記憶體配置失敗 |
+| `2` | usage error：未知 flag、`--state INVALID`、`--whitelist abc`、`--output xml`、`--listen` 與 `--state` 同時出現 |
+| `3` | unsupported：保留給 future feature（目前未主動回傳） |
+
+正常輸出 → stdout；錯誤、warning → stderr。
+
+---
+
+## Memory Behavior
+
+- 一般 listing 模式：保留每筆通過 filter 的 record 以便排序與輸出。
+- `--stats` 模式：採 streaming aggregation，**不**保存 record 陣列，只累計 `tcp_total / udp_total / state_counts / suspicious_count`，適合 BusyBox / embedded 場景。
 
 ---
 
 ## Examples
 
 ```bash
-# 列出所有 TCP + UDP 連線
-diagnet
-
-# 僅顯示 TCP
-diagnet --proto tcp
-
-# 僅顯示 UDP
-diagnet --proto udp
-
-# 狀態分佈摘要（不列出每條連線）
-diagnet --stats
-
-# 只顯示已建立的連線
-diagnet --state ESTABLISHED
-
-# 列出可疑監聽 Port
-diagnet --suspicious
-
-# 把 8888 與 9090 加入白名單
-diagnet --whitelist 8888,9090
-
-# 以 JSON 輸出並用 jq 取出 summary
-diagnet --output json | jq .summary
-
-# 驗證 JSON 格式合法
-diagnet --output json | python3 -m json.tool
+diagnet                                                    # 預設 table
+diagnet --proto tcp --sort state                           # 依 state 排序的 TCP
+diagnet --listen --no-header                               # listening sockets，無標題
+diagnet --local-port 22 --output raw                       # 與 awk 串接
+diagnet --suspicious --whitelist 8888,9090                 # 自訂白名單
+diagnet --stats                                            # streaming 摘要
+diagnet --output json | python3 -m json.tool               # JSON 驗證
+diagnet --output json | jq '.warnings'                     # 觀察系統級警告
 ```
 
 ---
 
-## Exit Codes
+## Benchmark / Cross-check
 
-| Code  | 意義                                                              |
-| ----- | ----------------------------------------------------------------- |
-| `0`   | 執行成功，或顯示了 `--help`                                       |
-| `1`   | CLI 參數錯誤、`/proc/net/{tcp,udp}` I/O 失敗，或記憶體配置失敗    |
+`diagnet` 的 TCP/UDP listing 與 state summary 可與 `ss` / `netstat` 結果交叉驗證：
 
-錯誤訊息一律輸出至 `stderr`，正常結果則輸出至 `stdout`，方便 pipe 串接。
+| diagnet 功能 | 對照工具 |
+| --- | --- |
+| TCP/UDP listing | `ss -tun` |
+| listening ports | `ss -ltnu` |
+| TCP state | `ss -ant` |
+| legacy 對照 | `netstat -ant` |
+| state summary | `ss -ant state ...` 或自行統計 |
 
----
-
-## Limitations
-
-- **僅支援 Linux**：依賴 `/proc/net/tcp` 與 `/proc/net/udp` 虛擬檔案系統，無法在 Windows / macOS 直接執行。
-- **僅 IPv4**：libdiag 目前的 `diag_net.c` 僅解析 IPv4 連線；未支援 `/proc/net/tcp6`、`/proc/net/udp6`。
-- **被動偵測**：`--suspicious` 僅根據 Port 號比對白名單，不分析封包內容或行程身分。
+`tools/diagnet/test_diagnet.sh` 內含 BusyBox `netstat` cross-check；效能對比腳本見 [bench.sh](bench.sh) 與報告 [bench.md](bench.md)。
 
 ---
 
-## Architecture (Brief)
+## Compatibility with `ss` / `netstat` / Toybox
 
-`diagnet` 本身僅負責 CLI 解析、過濾、聚合與輸出格式化；所有底層 `/proc` 讀取與欄位解析皆委由共用模組 [libdiag](../../libdiag/) 處理。主要透過下列 callback API 收集連線資料（定義於 [libdiag/include/libdiag/diag_net.h](../../libdiag/include/libdiag/diag_net.h)）：
+diagnet 採 GNU `ss` / Toybox 的 long-option 慣例（`--proto`、`--listen`、`--state`），讓熟悉這些工具的使用者可以零學習成本上手。下表列出常見操作的對應命令與差異：
 
-```c
-int diag_net_foreach_tcp(int (*cb)(const diag_net_conn_t *, void *), void *user);
-int diag_net_foreach_udp(int (*cb)(const diag_net_conn_t *, void *), void *user);
-```
+| diagnet flag | 等效 `ss` 命令 | 等效 `netstat` 命令 | 等效 Toybox `netstat` | 差異說明 |
+| --- | --- | --- | --- | --- |
+| `--proto tcp` | `ss -t` | `netstat -t` | `netstat -t` | 一致 |
+| `--proto udp` | `ss -u` | `netstat -u` | `netstat -u` | 一致 |
+| `--listen` | `ss -l` | `netstat -l` | `netstat -l` | 一致 |
+| `--state LISTEN` | `ss state listening` | `netstat \| grep LISTEN` | （需 grep） | diagnet 在 CLI 直接過濾 |
+| `--state ESTABLISHED` | `ss state established` | `netstat \| grep ESTAB` | （需 grep） | 同上 |
+| `--local-port N` | `ss sport = :N` | （需 grep） | （需 grep） | diagnet 內建 port filter |
+| `--remote-port N` | `ss dport = :N` | （需 grep） | （需 grep） | 同上 |
+| `--local-addr ADDR` | `ss src ADDR` | （需 grep） | （需 grep） | 字串相等比對 |
+| `--remote-addr ADDR` | `ss dst ADDR` | （需 grep） | （需 grep） | 同上 |
+| `--output table`（預設） | `ss -tunal` 預設輸出 | `netstat -tunal` 預設輸出 | 同 | 一致；diagnet 多 `FLAGS` 欄 |
+| `--output raw` | `ss --no-header` 接近 | – | – | diagnet 欄位固定無對齊，方便 `awk`/`cut` |
+| `--output json` | `ss -O`（非 JSON） | （不支援） | （不支援） | diagnet 提供 stable JSON schema |
+| `--no-header` | `ss --no-header` | – | – | 一致 |
+| `--sort state` | `ss -A inet`（內排序） | – | – | diagnet 額外 |
+| `--stats` | `ss -ant \| awk` 自行統計 | `netstat -s` 不同語意 | – | diagnet 提供 state distribution + streaming 不存記憶體 |
+| `--suspicious` | （無對應） | （無對應） | （無對應） | diagnet 新增的 heuristic 觀察 |
+| `--help` | `ss --help` | `netstat --help` | `netstat --help` | 一致 |
+| Exit code | 0 / 非 0 | 0 / 非 0 | 0 / 非 0 | diagnet 多區分 usage error = 2、unsupported = 3 |
 
-完整設計（資料流、函式職責、技術方案）採四層架構：CLI 解析層（`getopt_long`）→ 資料收集層（`libdiag` callback）→ 分析處理層（白名單比對、狀態統計）→ 輸出層（table / JSON），詳見本文件各節說明。
+### 設計原則
+
+- **介面層相容**：與 `ss` 等對應工具學習成本一致；常見查詢可一對一替換。
+- **資料層獨立**：diagnet 走 procfs（`/proc/net/{tcp,udp}`）解析；`ss` 走 netlink。兩者結果可交叉驗證但 transport 不同。
+- **輸出層擴充**：保留 `ss` 沒有的 stable `json` schema、`raw` 對齊－free 輸出，方便寫腳本與測試。
+- **語意正確性優於相容性**：UDP 沒有 TCP state machine，因此 diagnet 對 UDP record 顯示 `state = "-"`（table）或 `"NONE"`（JSON）；不沿用 `ss` 將 UDP 也標 `UNCONN` 的慣例，避免使用者誤把 datagram socket 套上 connection state 解讀。
+
+---
+
+## Future Work (P2)
+
+- IPv6：`/proc/net/tcp6`、`/proc/net/udp6`
+- namespace-aware view（網路 namespace）
+- process ownership mapping（PID / comm）
+- cgroup / container 分組
+- optional service name resolution
+
+這些目前 **沒有** 實作；CLI 也未開啟對應 flag。
 
 ---
 
 ## See Also
 
-- [libdiag/](../../libdiag/) — 共用資料收集模組，提供 `/proc` 解析的底層實作
-- `netstat(8)`, `ss(8)` — GNU / util-linux 對應工具，效能基準測試的對照組
+- [libdiag/](../../libdiag/) — 共用 measurement layer
+- `ss(8)`, `netstat(8)` — 對照工具

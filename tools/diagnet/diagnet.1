@@ -1,0 +1,205 @@
+.TH DIAGNET 1 "2026-05-13" "BusyBox-Diag" "User Commands"
+.SH NAME
+diagnet \- procfs-based Linux network connection monitoring tool
+.SH SYNOPSIS
+.B diagnet
+.RI [ OPTIONS ]
+.SH DESCRIPTION
+.B diagnet
+passively reads TCP and UDP connection metadata exported by the Linux kernel
+through
+.IR /proc/net/tcp " and " /proc/net/udp ,
+and produces connection listings, TCP state summaries, listening-port
+observation, and heuristic suspicious-port flagging.
+.PP
+.B diagnet
+does not actively probe remote endpoints, does not capture packets, and is
+not an intrusion detection system. The
+.B \-\-suspicious
+flag implements
+.IR "heuristic-based suspicious listening port observation"
+only.
+.PP
+Connection metadata collection is delegated to the shared
+.B libdiag
+measurement layer;
+.B diagnet
+itself implements analysis, filtering, policy, and presentation.
+.SH OPTIONS
+.SS Filtering
+.TP
+.BI \-\-proto " PROTO"
+Filter by protocol:
+.BR tcp ", " udp ", or " all
+(default
+.BR all ).
+.TP
+.BI \-\-state " STATE"
+Filter by TCP state (e.g.
+.BR ESTABLISHED ", " LISTEN ", " TIME_WAIT ).
+Invalid state name exits with code 2.
+Mutually exclusive with
+.BR \-\-listen .
+.TP
+.B \-\-listen
+Shortcut for
+.BR "\-\-state LISTEN" .
+.TP
+.BI \-\-local-port " PORT"
+Filter by local port (1..65535).
+.TP
+.BI \-\-remote-port " PORT"
+Filter by remote port (1..65535).
+.TP
+.BI \-\-local-addr " ADDR"
+Filter by local IPv4 address (string match).
+.TP
+.BI \-\-remote-addr " ADDR"
+Filter by remote IPv4 address (string match).
+.TP
+.B \-\-suspicious
+Show only listening ports flagged by the suspicious-port heuristic.
+.TP
+.BI \-\-whitelist " PORTS"
+Comma-separated list of additional ports to add to the suspicious-port
+whitelist (e.g.
+.IR 8888,9090 ).
+Additive only; the built-in 27-port whitelist is not replaced.
+.SS Output
+.TP
+.BI \-\-output " FORMAT"
+Output format:
+.BR table " (default), " raw ", or " json .
+.TP
+.BI \-\-sort " MODE"
+Sort records by
+.BR state ", " local-port ", or " remote-port .
+.TP
+.B \-\-no-header
+Suppress the header row in
+.B table
+and
+.B raw
+output.
+.TP
+.B \-\-stats
+Show only the state-distribution summary. Uses streaming aggregation and
+does not retain individual records in memory.
+.TP
+.B \-\-quiet
+Suppress global warnings on stderr.
+.TP
+.BR \-h ", " \-\-help
+Show help and exit.
+.SH OUTPUT FORMATS
+.SS Table (default)
+.nf
+PROTO LOCAL_ADDR        LPORT  REMOTE_ADDR      RPORT  STATE        FLAGS
+tcp   127.0.0.1         22     0.0.0.0          0      LISTEN       -
+tcp   0.0.0.0           8080   0.0.0.0          0      LISTEN       suspicious_port,public_listen
+udp   0.0.0.0           53     0.0.0.0          0      -            -
+.fi
+UDP records show STATE as
+.RB \(lq - \(rq;
+multiple flags are comma-joined.
+.SS Raw
+Same columns, single-space separated, no alignment, no header. Designed
+for
+.BR awk (1)
+and
+.BR cut (1)
+pipelines.
+.SS JSON
+Stable schema with three top-level keys:
+.B connections
+(array),
+.B summary
+(object with
+.BR total ", " tcp ", " udp ", " states "),"
+and
+.B warnings
+(array of system-level observations such as
+.BR many_time_wait ).
+Each connection has
+.BR protocol ", " local_address ", " local_port ", "
+.BR remote_address ", " remote_port ", " state ", and " flags .
+UDP records always emit
+.B "state: \(dqNONE\(dq" .
+.SH EXIT STATUS
+.TP
+.B 0
+Success, or
+.B \-\-help
+shown.
+.TP
+.B 1
+Runtime error: failed to read
+.IR /proc/net/tcp " or " /proc/net/udp ,
+or memory allocation failure.
+.TP
+.B 2
+Usage error: unknown flag, invalid argument value, or mutually-exclusive
+flags specified together.
+.TP
+.B 3
+Unsupported feature (reserved for future use).
+.PP
+Normal output goes to stdout; errors and warnings go to stderr.
+.SH EXAMPLES
+List every TCP/UDP connection:
+.PP
+.RS
+.EX
+diagnet
+.EE
+.RE
+.PP
+Show listening sockets only, no header, machine-friendly columns:
+.PP
+.RS
+.EX
+diagnet \-\-listen \-\-output raw \-\-no-header
+.EE
+.RE
+.PP
+Filter by local port and inspect with
+.BR jq (1):
+.PP
+.RS
+.EX
+diagnet \-\-local-port 22 \-\-output json | jq .connections
+.EE
+.RE
+.PP
+Show only heuristic-flagged listening ports, with an extended whitelist:
+.PP
+.RS
+.EX
+diagnet \-\-suspicious \-\-whitelist 8888,9090
+.EE
+.RE
+.PP
+Streaming state-distribution summary (no record retention):
+.PP
+.RS
+.EX
+diagnet \-\-stats
+.EE
+.RE
+.SH FILES
+.TP
+.I /proc/net/tcp
+Source of TCP connection metadata.
+.TP
+.I /proc/net/udp
+Source of UDP connection metadata.
+.SH SEE ALSO
+.BR ss (8),
+.BR netstat (8),
+.BR proc (5)
+.SH AUTHORS
+Part of the
+.B BusyBox-Diag
+system diagnostics toolkit.
+.SH LICENSE
+See the project repository for licensing information.

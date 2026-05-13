@@ -1,0 +1,8 @@
+# Build artifacts
+*.o
+diagnet
+
+# Runtime/test outputs
+bench.log
+test_diagnet.log
+test_summary.txt

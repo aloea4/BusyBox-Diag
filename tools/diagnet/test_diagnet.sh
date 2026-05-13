@@ -39,25 +39,19 @@ run_case() {
     } >>"$LOG" 2>&1
 }
 
-assert_zero() {
-    local name="$1"; shift
+assert_exit() {
+    local expected="$1"
+    local name="$2"; shift 2
     run_case "$name" "$@"
-    if tail -n 5 "$LOG" | grep -q "^exit=0$"; then
+    if tail -n 5 "$LOG" | grep -q "^exit=${expected}$"; then
         pass "$name"
     else
-        fail "$name (expected exit 0)"
+        fail "$name (expected exit ${expected})"
     fi
 }
 
-assert_nonzero() {
-    local name="$1"; shift
-    run_case "$name" "$@"
-    if tail -n 5 "$LOG" | grep -q "^exit=0$"; then
-        fail "$name (expected non-zero exit)"
-    else
-        pass "$name"
-    fi
-}
+assert_zero()    { assert_exit 0 "$@"; }
+assert_usage()   { assert_exit 2 "$@"; }
 
 # --- pre-flight -----------------------------------------------------------
 
@@ -74,17 +68,25 @@ fi
 
 echo "=== Section A: spec acceptance cases ==="
 
-assert_zero    "A1  diagnet"                 "$DIAGNET"
-assert_zero    "A2  --proto tcp"             "$DIAGNET --proto tcp"
-assert_zero    "A3  --proto udp"             "$DIAGNET --proto udp"
-assert_zero    "A4  --stats"                 "$DIAGNET --stats"
-assert_zero    "A5  --state ESTABLISHED"     "$DIAGNET --state ESTABLISHED"
-assert_zero    "A6  --suspicious"            "$DIAGNET --suspicious"
-assert_zero    "A7  --output json | jsonlint" "$DIAGNET --output json | python3 -m json.tool >/dev/null"
-assert_zero    "A8  --help"                  "$DIAGNET --help"
-assert_zero    "A9  --state INVALID (silent filter)" "$DIAGNET --state INVALID"
-assert_nonzero "A10 --whitelist abc"         "$DIAGNET --whitelist abc"
-assert_nonzero "A11 --output xml"            "$DIAGNET --output xml"
+assert_zero  "A1  diagnet"                 "$DIAGNET"
+assert_zero  "A2  --proto tcp"             "$DIAGNET --proto tcp"
+assert_zero  "A3  --proto udp"             "$DIAGNET --proto udp"
+assert_zero  "A4  --stats"                 "$DIAGNET --stats"
+assert_zero  "A5  --state ESTABLISHED"     "$DIAGNET --state ESTABLISHED"
+assert_zero  "A6  --suspicious"            "$DIAGNET --suspicious"
+assert_zero  "A7  --output json | jsonlint" "$DIAGNET --output json | python3 -m json.tool >/dev/null"
+assert_zero  "A8  --help"                  "$DIAGNET --help"
+assert_usage "A9  --state INVALID"         "$DIAGNET --state INVALID"
+assert_usage "A10 --whitelist abc"         "$DIAGNET --whitelist abc"
+assert_usage "A11 --output xml"            "$DIAGNET --output xml"
+assert_zero  "A12 --listen"                "$DIAGNET --listen"
+assert_usage "A13 --listen + --state LISTEN" "$DIAGNET --listen --state LISTEN"
+assert_zero  "A14 --local-port 22"         "$DIAGNET --local-port 22"
+assert_zero  "A15 --sort state"            "$DIAGNET --sort state"
+assert_zero  "A16 --output raw"            "$DIAGNET --output raw >/dev/null"
+assert_zero  "A17 --no-header"             "$DIAGNET --no-header >/dev/null"
+assert_zero  "A18 --proto udp first state is NONE" \
+    "test \"\$($DIAGNET --proto udp --output json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[\"connections\"][0][\"state\"] if d[\"connections\"] else \"NONE\")')\" = NONE"
 
 # --- B. BusyBox netstat cross-check (optional) ----------------------------
 
@@ -127,10 +129,22 @@ echo "=== Section C: JSON schema ==="
 if "$DIAGNET" --output json 2>/dev/null | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
-assert 'connections'      in d, 'missing connections'
-assert 'summary'          in d, 'missing summary'
-assert 'suspicious_ports' in d, 'missing suspicious_ports'
-assert d['summary']['total'] == len(d['connections']), 'total != len(connections)'
+assert 'connections' in d, 'missing connections'
+assert 'summary'     in d, 'missing summary'
+assert 'warnings'    in d, 'missing warnings'
+assert 'suspicious_ports' not in d, 'legacy suspicious_ports key should be gone'
+s = d['summary']
+assert s['total'] == len(d['connections']), 'total != len(connections)'
+assert s['tcp'] + s['udp'] == s['total'], 'tcp+udp != total'
+assert isinstance(s['states'], dict), 'summary.states must be object'
+for c in d['connections']:
+    assert isinstance(c['flags'], list), 'connections[].flags must be list'
+    assert c['protocol'] in ('tcp', 'udp'), 'protocol must be tcp/udp'
+    if c['protocol'] == 'udp':
+        assert c['state'] == 'NONE', 'udp state must be NONE'
+    assert 'local_address'  in c
+    assert 'remote_address' in c
+assert isinstance(d['warnings'], list), 'warnings must be list'
 print('OK')
 " >>"$LOG" 2>&1; then
     pass "C  json schema"
