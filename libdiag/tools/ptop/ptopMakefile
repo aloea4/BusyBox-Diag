@@ -45,21 +45,29 @@ PTOP_STANDALONE_OBJ := \
 
 # Standalone compile flags: NO -DBUSYBOX
 CFLAGS_ptop_standalone.o :=
+PTOP_LOCAL_CPPFLAGS := -I../../include
+PTOP_LOCAL_LDLIBS := ../../libdiag.a
+CPPFLAGS += $(PTOP_LOCAL_CPPFLAGS)
 
 # Build standalone executable
 standalone: $(PTOP_STANDALONE_BIN)
 
 $(PTOP_STANDALONE_BIN): $(PTOP_STANDALONE_OBJ)
-	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(PTOP_LOCAL_LDLIBS)
 
 # Compile ptop.c into standalone object
 ptop_standalone.o: ptop.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(CFLAGS_ptop_standalone.o) -c -o $@ $<
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(PTOP_LOCAL_CPPFLAGS) $(CFLAGS_ptop_standalone.o) -c -o $@ $<
 
 # Compile ptop.c into BusyBox applet object
 ptop_applet.o: ptop.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(CFLAGS_ptop_applet.o) -c -o $@ $<
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(PTOP_LOCAL_CPPFLAGS) $(CFLAGS_ptop_applet.o) -c -o $@ $<
 
 # cleanup standalone artifacts
 clean-standalone:
 	rm -f $(PTOP_STANDALONE_BIN) ptop_standalone.o
+
+# minimal ptop tests
+test: standalone
+	./tests/run_tests.sh
+
