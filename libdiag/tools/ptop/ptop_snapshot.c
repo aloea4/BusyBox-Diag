@@ -1,4 +1,5 @@
 #include "ptop_snapshot.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,6 +25,35 @@ static int collect_cb(const diag_proc_info_t *info, void *user)
     return 0;
 }
 
+static int collect_meminfo(ptop_snapshot_t *snap)
+{
+    FILE *fp = fopen("/proc/meminfo", "r");
+    if (!fp)
+        return -1;
+
+    char key[64];
+    unsigned long value = 0;
+    char unit[16];
+
+    while (fscanf(fp, "%63[^:]: %lu %15s\n", key, &value, unit) == 3) {
+        if (strcmp(key, "MemTotal") == 0)
+            snap->mem_total_kb = value;
+        else if (strcmp(key, "MemFree") == 0)
+            snap->mem_free_kb = value;
+        else if (strcmp(key, "Buffers") == 0)
+            snap->buffers_kb = value;
+        else if (strcmp(key, "Cached") == 0)
+            snap->cached_kb = value;
+        else if (strcmp(key, "SwapTotal") == 0)
+            snap->swap_total_kb = value;
+        else if (strcmp(key, "SwapFree") == 0)
+            snap->swap_free_kb = value;
+    }
+
+    fclose(fp);
+    return 0;
+}
+
 int ptop_snapshot_collect(ptop_snapshot_t *snap)
 {
     memset(snap, 0, sizeof(*snap));
@@ -31,6 +61,9 @@ int ptop_snapshot_collect(ptop_snapshot_t *snap)
     clock_gettime(CLOCK_MONOTONIC, &snap->ts);
 
     if (diag_cpu_read_snapshot(&snap->cpu) < 0)
+        return -1;
+
+    if (collect_meminfo(snap) < 0)
         return -1;
 
     proc_buf_t b = {0};
