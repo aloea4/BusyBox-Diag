@@ -31,6 +31,8 @@ typedef struct {
     ptop_sort_mode_t sort_mode;
     int tree;               /* show tree */
     int top_n;              /* 0 = all */
+    pid_t filter_pid;       /* -p PID, -1 = disabled */
+    char filter_state;      /* -S STATE, 0 = disabled */
 } ptop_config_t;
 
 /* ---------------------------
@@ -42,6 +44,12 @@ typedef struct {
     size_t proc_count;
 
     diag_cpu_snapshot_t cpu;
+    unsigned long mem_total_kb;
+    unsigned long mem_free_kb;
+    unsigned long buffers_kb;
+    unsigned long cached_kb;
+    unsigned long swap_total_kb;
+    unsigned long swap_free_kb;
 
     struct timespec ts;
 } ptop_snapshot_t;
@@ -119,6 +127,8 @@ int ptop_output_batch(const ptop_snapshot_t *snap,
 
 void ptop_signal_init(void);
 int ptop_should_exit(void);
+int ptop_terminal_resized(void);
+void ptop_clear_resize_flag(void);
 
 void ptop_terminal_hide_cursor(void);
 void ptop_terminal_restore(void);
