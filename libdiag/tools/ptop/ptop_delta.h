@@ -15,6 +15,7 @@ typedef struct {
 typedef struct {
     ptop_proc_view_t *items;
     size_t count;
+    double system_cpu_percent;
 } ptop_delta_result_t;
 
 int ptop_delta_compute(
