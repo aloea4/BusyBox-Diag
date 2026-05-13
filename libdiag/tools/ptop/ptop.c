@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 
 /* ----------------------------
@@ -50,8 +51,12 @@ static void PTOP_USAGE(void)
         "  -d SEC     refresh delay seconds (default 1)\n"
         "  -n COUNT   refresh COUNT times then exit\n"
         "  -b         batch mode (no ANSI)\n"
+        "  -r         raw mode (key=value lines)\n"
+        "  -j         json mode\n"
         "  -1         once (single snapshot)\n"
         "  -t N       show top N processes (default all)\n"
+        "  -p PID     filter by pid\n"
+        "  -S STATE   filter by process state (R/S/D/Z/...)\n"
         "  -s MODE    sort mode: pid|cpu|rss (default pid)\n"
         "  -h         help\n"
     );
@@ -76,11 +81,51 @@ static ptop_sort_mode_t parse_sort_mode(const char *s)
     return PTOP_SORT_PID;
 }
 
-/* Standalone sorting stub (real sorting should be in ptop_filter.c later) */
+static int cmp_pid(const void *a, const void *b)
+{
+    const ptop_proc_view_t *x = (const ptop_proc_view_t *)a;
+    const ptop_proc_view_t *y = (const ptop_proc_view_t *)b;
+    if (x->pid < y->pid) return -1;
+    if (x->pid > y->pid) return 1;
+    return 0;
+}
+
+static int cmp_cpu_desc(const void *a, const void *b)
+{
+    const ptop_proc_view_t *x = (const ptop_proc_view_t *)a;
+    const ptop_proc_view_t *y = (const ptop_proc_view_t *)b;
+    if (x->cpu_percent < y->cpu_percent) return 1;
+    if (x->cpu_percent > y->cpu_percent) return -1;
+    return cmp_pid(a, b);
+}
+
+static int cmp_rss_desc(const void *a, const void *b)
+{
+    const ptop_proc_view_t *x = (const ptop_proc_view_t *)a;
+    const ptop_proc_view_t *y = (const ptop_proc_view_t *)b;
+    if (x->rss_kb < y->rss_kb) return 1;
+    if (x->rss_kb > y->rss_kb) return -1;
+    return cmp_pid(a, b);
+}
+
 int ptop_sort_apply(ptop_delta_result_t *delta, const ptop_config_t *cfg)
 {
-    (void)delta;
-    (void)cfg;
+    if (!delta || !cfg || !delta->items)
+        return -1;
+
+    switch (cfg->sort_mode) {
+    case PTOP_SORT_CPU:
+        qsort(delta->items, delta->count, sizeof(delta->items[0]), cmp_cpu_desc);
+        break;
+    case PTOP_SORT_RSS:
+        qsort(delta->items, delta->count, sizeof(delta->items[0]), cmp_rss_desc);
+        break;
+    case PTOP_SORT_PID:
+    default:
+        qsort(delta->items, delta->count, sizeof(delta->items[0]), cmp_pid);
+        break;
+    }
+
     return 0;
 }
 
@@ -102,9 +147,11 @@ int PTOP_ENTRY_NAME(int argc, char **argv)
     cfg.sort_mode = PTOP_SORT_PID;
     cfg.tree = 0;
     cfg.top_n = 0;
+    cfg.filter_pid = -1;
+    cfg.filter_state = 0;
 
     int opt;
-    while ((opt = getopt(argc, argv, "d:n:bh1t:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "d:n:brj1t:s:p:S:h")) != -1) {
         switch (opt) {
         case 'd':
             cfg.delay_sec = atoi(optarg);
@@ -121,6 +168,12 @@ int PTOP_ENTRY_NAME(int argc, char **argv)
         case 'b':
             cfg.mode = PTOP_MODE_BATCH;
             break;
+        case 'r':
+            cfg.mode = PTOP_MODE_RAW;
+            break;
+        case 'j':
+            cfg.mode = PTOP_MODE_JSON;
+            break;
 
         case '1':
             cfg.loops = 1;
@@ -134,6 +187,16 @@ int PTOP_ENTRY_NAME(int argc, char **argv)
 
         case 's':
             cfg.sort_mode = parse_sort_mode(optarg);
+            break;
+        case 'p':
+            cfg.filter_pid = (pid_t)atoi(optarg);
+            if (cfg.filter_pid <= 0)
+                PTOP_DIE("invalid pid", optarg);
+            break;
+        case 'S':
+            if (optarg[0] == '\0' || optarg[1] != '\0')
+                PTOP_DIE("invalid state", optarg);
+            cfg.filter_state = (char)toupper((unsigned char)optarg[0]);
             break;
 
         case 'h':
@@ -189,12 +252,8 @@ int PTOP_ENTRY_NAME(int argc, char **argv)
         ptop_sort_apply(&delta, &cfg);
         ptop_policy_apply(&delta, &cfg);
 
-        if (cfg.mode == PTOP_MODE_BATCH) {
+        if (cfg.mode != PTOP_MODE_INTERACTIVE) {
             ptop_output_batch(&curr, &delta, &cfg);
-
-            ptop_delta_free(&delta);
-            ptop_snapshot_free(&curr);
-            break;
         } else {
             ptop_render_tty(&curr, &delta, &cfg);
         }
