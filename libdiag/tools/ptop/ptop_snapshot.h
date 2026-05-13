@@ -9,6 +9,12 @@ typedef struct {
     size_t proc_count;
 
     diag_cpu_snapshot_t cpu;
+    unsigned long mem_total_kb;
+    unsigned long mem_free_kb;
+    unsigned long buffers_kb;
+    unsigned long cached_kb;
+    unsigned long swap_total_kb;
+    unsigned long swap_free_kb;
 
     struct timespec ts;
 } ptop_snapshot_t;
