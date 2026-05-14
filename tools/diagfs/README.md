@@ -14,11 +14,18 @@
 - `diagfs_main` 內部已實作參數解析，當偵測到 `argv` 中包含 `--help` 時，會自動印出專屬的 Usage 說明並回傳 `0` (EXIT_OK)。
 - 主程式的分發邏輯無需額外為 `diagfs` 撰寫 help 輸出。
 
-### 3. Man Page 安裝
+### 3. libdiag 依賴與呼叫點
+- `diagfs` 透過 `diagfs.c` 直接呼叫 `libdiag` 提供的兩個 API：
+  - `diag_fs_read(path, &fs)` — 讀取 filesystem metadata（block usage、inode usage、fs type）
+  - `diag_fs_read_fiemap(path, &fiemap)` — 讀取 FIEMAP extent layout（僅在使用者指定 `--fiemap` 時才會呼叫）
+- `libdiag` 不需要額外的初始化呼叫（init / teardown）；上述兩個函數均為 stateless 的單次 ioctl / syscall 封裝，可直接呼叫。
+- 整合時需確保 `libdiag/diag_common.h` 與 `libdiag/diag_fs.h` 可被 include path 找到，並連結 `libdiag`。
+
+### 4. Man Page 安裝
 - 本專案目錄下提供標準的手冊檔案 `diagfs.1`。
 - 在統一的 `Makefile` 執行 `make install` 時，請協助將此檔案複製到系統的 man 目錄（例如 `/usr/share/man/man1/`），讓使用者可以透過 `man diagfs` 查閱。
 
-### 4. 效能測試
+### 5. 效能測試
 - 透過 `bench.sh` 以中位數做判定，測試結果儲存於 `bench.md`
 
 ---
@@ -63,7 +70,7 @@ diagfs /home/project
 ```
 Linux filesystem metadata
         ↓
-libdiag  ·····················  Measurement layer
+libdiag  ·····················  Measurement layer（diag_fs_read / diag_fs_read_fiemap）
         ↓
 diagfs_analyze.c  ············  Analysis layer
         ↓
@@ -78,7 +85,7 @@ table / raw / json / pipeline
 
 ```
 tools/diagfs/
-├── diagfs.c              # main / CLI 解析 / flow control
+├── diagfs.c              # main / CLI 解析 / flow control / libdiag 呼叫點
 ├── diagfs.h              # 所有型別、enum、struct、function prototype
 ├── diagfs_analyze.c      # Layer 2: 計算百分比、analyze_layout、analyze_filesystem
 ├── diagfs_policy.c       # Layer 3: threshold 定義、get_default_policy
@@ -86,6 +93,10 @@ tools/diagfs/
 ├── diagfs_mount.c        # /proc/self/mounts 掛載表遍歷
 └── README.md
 ```
+
+> `diagfs.c` 同時承擔 flow control 與 libdiag 呼叫（`diag_fs_read` / `diag_fs_read_fiemap`）。
+> 沒有獨立的 collect 層；measurement 的呼叫點就在 `diagfs_main` 本體中，
+> analyze / policy / output 的計算與判斷邏輯則各自拆分到對應的 `.c` 檔。
 
 ### Layer 職責邊界
 
@@ -123,15 +134,15 @@ diagfs [PATH] [--all] [--real] [--pseudo]
 |---|---|
 | `PATH` | 指定要分析的路徑（預設為 `/`）。分析的是該路徑所在的 mounted filesystem |
 | `--all` | 掃描所有掛載點 |
-| `--real` | （搭配 `--all`）只列真實 block-backed filesystem，跳過 pseudo fs（預設行為） |
-| `--pseudo` | （搭配 `--all`）包含 proc / sysfs / tmpfs / cgroup 等虛擬檔案系統 |
+| `--real` | （搭配 `--all`）只列真實 block-backed filesystem，跳過 pseudo fs。**這是 `--all` 的預設行為**，不需要明確指定 |
+| `--pseudo` | （搭配 `--all`）改為包含 proc / sysfs / tmpfs / cgroup 等虛擬檔案系統 |
 | `--output table` | 人類可讀的表格輸出（預設） |
 | `--output raw` | 空白分隔的單行輸出，適合 shell pipeline |
 | `--output json` | JSON 格式輸出，適合程式解析或 `jq` |
 | `--color auto` | 根據 `isatty()` 自動決定是否顯示顏色（預設） |
 | `--color always` | 強制顯示顏色（例如透過 `less -R` 觀看時） |
 | `--color never` | 強制不顯示顏色，適合寫入檔案或 pipe |
-| `--fiemap` | 若 filesystem 不支援 FIEMAP，以 exit code 3 明確報錯（而非靜默略過） |
+| `--fiemap` | 啟用 FIEMAP extent metadata 查詢。若 filesystem 不支援 FIEMAP，以 exit code 3 明確報錯（而非靜默略過）。**不加此選項時不會呼叫 FIEMAP，JSON 輸出的 `layout` 欄位會以 `fiemap_supported: false` 填入，不影響其他欄位** |
 | `--help` | 顯示使用說明 |
 
 ---
@@ -140,24 +151,37 @@ diagfs [PATH] [--all] [--real] [--pseudo]
 
 ### Table（預設，給人看）
 
+Table 輸出採垂直欄位格式（key: value），每個 filesystem 各自一段，以分隔線區隔。
+
 ```
 diagfs - Filesystem Health Checker
 ------------------------------------------
-路徑        : /
-檔案系統類型: ext4
-[空間使用] 已使用 61440 KB / 總計 102400 KB (60%)
-[inode 使用] 8%
-[extent 觀察] 數量: 2 (low_extent_count)
+Path        : /
+Type        : ext4
+Space usage : 61440 KB used / 102400 KB total (60%)
+Inode usage : 8%
+Extents     : 2 (low_extent_count)
+Space health: ok
+Inode health: ok
 ------------------------------------------
 ```
 
+> 注意：Table 格式為人類閱讀設計，欄位格式可能因版本調整。
+> 若需要程式解析，請改用 `--output raw` 或 `--output json`。
+
 ### Raw（給 shell script）
+
+每個 filesystem 一行，欄位以空白分隔：
 
 ```
 / ext4 102400 61440 40960 60 8 2 ok ok
 ```
 
-欄位順序：`PATH TYPE TOTAL_KB USED_KB FREE_KB USE% INODE% EXTENT_COUNT SPACE_HEALTH INODE_HEALTH`
+欄位順序（共 10 欄）：
+
+| $1 | $2 | $3 | $4 | $5 | $6 | $7 | $8 | $9 | $10 |
+|---|---|---|---|---|---|---|---|---|---|
+| PATH | TYPE | TOTAL_KB | USED_KB | FREE_KB | USE% | INODE% | EXTENT_COUNT | SPACE_HEALTH | INODE_HEALTH |
 
 ### JSON（給程式處理）
 
@@ -194,6 +218,16 @@ diagfs - Filesystem Health Checker
 }
 ```
 
+不加 `--fiemap` 時，`layout` 欄位固定輸出為：
+
+```json
+"layout": {
+  "fiemap_supported": false,
+  "extent_count": 0,
+  "observation": "unsupported"
+}
+```
+
 ---
 
 ## Exit Codes
@@ -203,7 +237,7 @@ diagfs - Filesystem Health Checker
 | `0` | 正常完成 |
 | `1` | 執行期錯誤（`statfs` 失敗、mount table 無法讀取） |
 | `2` | 參數錯誤（未知選項、缺少引數） |
-| `3` | 功能不支援（`--fiemap` 但 filesystem 不支援 FIEMAP） |
+| `3` | 功能不支援（`--fiemap` 已指定，但 filesystem 不支援 FIEMAP）。**不加 `--fiemap` 時，即使 filesystem 不支援 FIEMAP 也不會觸發 exit code 3** |
 
 ---
 
@@ -217,8 +251,8 @@ diagfs - Filesystem Health Checker
 | inode 使用率 | ≥ 70% | ≥ 90% |
 | extent 數量 | > 10 | > 50 |
 
-> inode 使用率採用 **ceiling（無條件進位）** 計算。
-> 原因：inode 耗盡會直接導致無法建立新檔案，屬於高風險狀態，保守進位確保提早觸發警告閾值。
+**inode 使用率採用 ceiling（無條件進位）計算。**
+inode 耗盡會直接導致無法建立新檔案，屬於高風險狀態。保守進位確保提早觸發警告閾值，避免因捨去誤差而延誤警示。例如，inode 使用率真實值為 70.1% 時，ceiling 後為 71%，仍會觸發 WARN（≥ 70%）；若採 floor 則為 70%，同樣觸發，但在接近整數邊界的情況下行為差異會更明顯。
 
 ---
 
@@ -231,7 +265,7 @@ FIEMAP 提供的是**單一檔案的 extent layout metadata**，而非整個 fil
 | `low_extent_count` | extent 數量較少，推測該檔案配置較為連續 |
 | `medium_extent_count` | 數量普通，有輕度分散 |
 | `high_extent_count` | 數量偏多，推測檔案實體佈局較分散 |
-| `unsupported` | 此 filesystem 不支援 FIEMAP |
+| `unsupported` | 未啟用 `--fiemap`，或此 filesystem 不支援 FIEMAP |
 
 ---
 
@@ -239,10 +273,15 @@ FIEMAP 提供的是**單一檔案的 extent layout metadata**，而非整個 fil
 
 ```bash
 # 找出空間使用率達 critical 的掛載點
-diagfs --output raw | awk '$8 == "critical" { print $1 }'
+# $9 = SPACE_HEALTH
+diagfs --all --output raw | awk '$9 == "critical" { print $1 }'
 
 # 找出 inode 達 critical 的掛載點
-diagfs --output json | jq '.filesystems[] | select(.health.inode=="critical")'
+# $10 = INODE_HEALTH
+diagfs --all --output raw | awk '$10 == "critical" { print $1 }'
+
+# 用 jq 篩選 inode critical 的掛載點（JSON 格式）
+diagfs --all --output json | jq '.filesystems[] | select(.health.inode=="critical")'
 
 # 輸出報告至檔案（不含顏色碼）
 diagfs --all --output json --color never | tee report.json
