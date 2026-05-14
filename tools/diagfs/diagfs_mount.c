@@ -62,8 +62,11 @@ int scan_all_mounts(diagfs_output_format_t out_format,
             continue;
         }
 
+        // diagfs_mount.c，在 diag_fs_read 成功後
         diag_fiemap_info_t fiemap;
-        int ret_fiemap = diag_fs_read_fiemap(entry.target, &fiemap);
+        memset(&fiemap, 0, sizeof(fiemap));
+        int ret_fiemap = DIAG_ERR_UNSUPPORTED;
+        
         diagfs_layout_analysis_t layout   = analyze_layout(&fiemap, ret_fiemap, policy);
         diagfs_analysis_t        analysis = analyze_filesystem(&fs, policy, &layout);
 

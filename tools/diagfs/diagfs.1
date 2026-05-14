@@ -1,0 +1,33 @@
+.TH DIAGFS 1 "2026-05" "BusyBox-Diag" "User Commands"
+.SH NAME
+diagfs \- Filesystem health checker
+.SH SYNOPSIS
+.B diagfs
+[\fIPATH\fR] [\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B diagfs
+is a diagnostic tool used to quickly check disk space, inode usage, and file fragmentation on Linux mount points. It is part of the BusyBox-Diag project.
+.SH OPTIONS
+.TP
+.BR \-\-all
+Scan all mounted filesystems.
+.TP
+.BR \-\-real
+Scan real filesystems only (effective only when combined with \-\-all).
+.TP
+.BR \-\-pseudo
+Scan pseudo filesystems only (effective only when combined with \-\-all).
+.TP
+.BR \-\-output " " \fIraw|json|table\fR
+Specify the output format. Default is \fItable\fR.
+.TP
+.BR \-\-color " " \fIauto|always|never\fR
+Control colorized output.
+.TP
+.BR \-\-fiemap
+Require FIEMAP support for fragmentation analysis.
+.TP
+.BR \-\-help
+Show help message and exit.
+.SH AUTHOR
+Part of the BusyBox-Diag project.

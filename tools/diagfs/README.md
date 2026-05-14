@@ -1,5 +1,30 @@
 # diagfs
 
+## Integration Guide (整合協助)
+
+為了配合 BusyBox-Diag 的單一執行檔架構，本工具的整合方式如下：
+
+### 1. 進入點與參數傳遞
+- **函數名稱**：本工具的主函數已從 `main` 更名為 `diagfs_main(int argc, char **argv)`。
+- **參數傳遞**：請將外部收到的參數陣列指標，包含工具名稱本身一起傳入。
+  - 例如輸入 `./busybox-diag diagfs --help`
+  - 預期傳入 `diagfs_main` 的參數應為：`argv[0] = "diagfs"`, `argv[1] = "--help"`。
+
+### 2. Help 說明訊息
+- `diagfs_main` 內部已實作參數解析，當偵測到 `argv` 中包含 `--help` 時，會自動印出專屬的 Usage 說明並回傳 `0` (EXIT_OK)。
+- 主程式的分發邏輯無需額外為 `diagfs` 撰寫 help 輸出。
+
+### 3. Man Page 安裝
+- 本專案目錄下提供標準的手冊檔案 `diagfs.1`。
+- 在統一的 `Makefile` 執行 `make install` 時，請協助將此檔案複製到系統的 man 目錄（例如 `/usr/share/man/man1/`），讓使用者可以透過 `man diagfs` 查閱。
+
+### 4. 效能測試
+- 透過 `bench.sh` 以中位數做判定，測試結果儲存於 `bench.md`
+
+---
+
+## Diagfs 介紹
+
 `diagfs` 是 BusyBox-Diag 系統診斷工具集中的 **metadata-based Linux filesystem monitoring tool**。
 
 它透過 `libdiag` 封裝 Linux filesystem metadata 來源，取得 filesystem capacity、inode usage，以及選擇性的 FIEMAP extent layout observation。

@@ -2,8 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 
-int main(int argc, char **argv)
+int diagfs_main(int argc, char **argv)
 {
+
     const char *path = "/";
     diag_fs_info_t fs;
     diag_fiemap_info_t fiemap;
@@ -85,10 +86,16 @@ int main(int argc, char **argv)
         return EXIT_ERR_RUNTIME;
     }
 
-    int ret_fiemap = diag_fs_read_fiemap(path, &fiemap);
-    if (require_fiemap && ret_fiemap == DIAG_ERR_UNSUPPORTED) {
-        fprintf(stderr, "Error: %s 所在的檔案系統不支援 FIEMAP\n", path);
-        return EXIT_ERR_UNSUPPORTED;
+    int ret_fiemap = 0; // 給個預設值
+    memset(&fiemap, 0, sizeof(fiemap)); // 確保結構體乾淨
+
+    // 只有使用者加上 --fiemap 時，才去呼叫底層 ioctl
+    if (require_fiemap) {
+        ret_fiemap = diag_fs_read_fiemap(path, &fiemap);
+        if (ret_fiemap == DIAG_ERR_UNSUPPORTED) {
+            fprintf(stderr, "Error: %s 所在的檔案系統不支援 FIEMAP\n", path);
+            return EXIT_ERR_UNSUPPORTED;
+        }
     }
 
     /* 取得分析結果 */
