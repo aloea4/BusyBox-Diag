@@ -29,6 +29,13 @@ make clean
 ```
 
 ---
+## 核心概念
+
+當使用者指定一個 path 時，diagfs 分析的是「該 path 所在的掛載點 (mounted filesystem)」，而不是遞迴計算該目錄本身的大小。
+
+例如輸入 `diagfs /home/project`，工具會查詢該路徑所在檔案系統的底層 metadata，包含整體空間使用率、inode 狀態與可選的 FIEMAP extent 配置觀察。
+
+---
 
 ## 使用方式
 
