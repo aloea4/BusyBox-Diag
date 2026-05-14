@@ -1,120 +1,252 @@
-# diagfs — 檔案系統健康檢測工具
+# diagfs
 
-`diagfs` 是 BusyBox-Diag 專案中的檔案系統診斷工具，用於快速檢測 Linux 系統上各掛載點的空間使用率、inode 使用率與檔案碎片化程度。
+`diagfs` 是 BusyBox-Diag 系統診斷工具集中的 **metadata-based Linux filesystem monitoring tool**。
+
+它透過 `libdiag` 封裝 Linux filesystem metadata 來源，取得 filesystem capacity、inode usage，以及選擇性的 FIEMAP extent layout observation。
+
+當使用者指定一個 path 時，`diagfs` 分析的是該 path **所在的 mounted filesystem**，而不是遞迴計算該目錄本身的大小。
+
+```
+diagfs /home/project
+```
+
+> 查詢的是 `/home/project` 所在掛載點的 filesystem-level metadata，
+> 包括 block usage、inode usage 與可選的 FIEMAP extent metadata。
+> 行為類似 `df /home/project`，而非 `du /home/project`。
+
+`libdiag` 負責 measurement；`diagfs` 負責 analysis、policy 與 presentation。本工具採用被動式 metadata analysis，不遞迴掃描整個檔案系統，也不將 FIEMAP extent count 過度宣稱為完整 fragmentation benchmark。
 
 ---
 
-## 功能
+## Portability Boundary
 
-- 顯示指定路徑或所有掛載點的磁碟空間使用情況
-- 顯示 inode 使用率，並在接近上限時發出警告
-- 分析檔案碎片化程度（需檔案系統支援 FIEMAP）
-- 彩色輸出：綠色（正常）、黃色（注意）、紅色（警告）
+`diagfs` 採用 POSIX-style CLI 與 C API 設計，但 backend 是 Linux-specific：
+
+| 部分 | 層級 | 說明 |
+|---|---|---|
+| CLI 行為 | POSIX-style | stdout / stderr、exit code、path-based query |
+| `statvfs()` 思路 | POSIX-style | 可攜的 filesystem capacity 模型 |
+| `statfs()` | Linux / BSD-like | 可取得 fs type magic，適合 Linux diag |
+| `/proc/self/mounts` | Linux-specific | mount namespace aware |
+| FIEMAP ioctl | Linux-specific | extent layout metadata |
+| color output | Presentation | 不屬於資料層，透過 `--color` 控制 |
 
 ---
 
-## 編譯
+## Architecture
 
-確認已進入 `tools/diagfs/` 目錄，並且 `libdiag.a` 已建置完成：
+```
+Linux filesystem metadata
+        ↓
+libdiag  ·····················  Measurement layer
+        ↓
+diagfs_analyze.c  ············  Analysis layer
+        ↓
+diagfs_policy.c  ·············  Policy layer
+        ↓
+diagfs_output.c  ·············  Presentation layer
+        ↓
+table / raw / json / pipeline
+```
+
+### 檔案結構
+
+```
+tools/diagfs/
+├── diagfs.c              # main / CLI 解析 / flow control
+├── diagfs.h              # 所有型別、enum、struct、function prototype
+├── diagfs_analyze.c      # Layer 2: 計算百分比、analyze_layout、analyze_filesystem
+├── diagfs_policy.c       # Layer 3: threshold 定義、get_default_policy
+├── diagfs_output.c       # Layer 4: table / raw / json / color mode
+├── diagfs_mount.c        # /proc/self/mounts 掛載表遍歷
+└── README.md
+```
+
+### Layer 職責邊界
+
+| Layer | 檔案 | 責任 | 不做 |
+|---|---|---|---|
+| Measurement | `libdiag` | 呼叫 `statfs` / FIEMAP，封裝成 struct | 不判斷健康狀態 |
+| Analysis | `diagfs_analyze.c` | 計算使用比例、layout observation | 不決定顏色 |
+| Policy | `diagfs_policy.c` | 判斷 OK / WARN / CRITICAL | 不直接 `printf` |
+| Presentation | `diagfs_output.c` | table / raw / json / color | 不重新計算資料 |
+
+---
+
+## Build
 
 ```bash
-cd tools/diagfs
-make
+make diagfs
 ```
 
-清除編譯結果：
-
-```bash
-make clean
-```
-
----
-## 核心概念
-
-當使用者指定一個 path 時，diagfs 分析的是「該 path 所在的掛載點 (mounted filesystem)」，而不是遞迴計算該目錄本身的大小。
-
-例如輸入 `diagfs /home/project`，工具會查詢該路徑所在檔案系統的底層 metadata，包含整體空間使用率、inode 狀態與可選的 FIEMAP extent 配置觀察。
+依賴 `libdiag`，需確保 `libdiag/diag_common.h` 與 `libdiag/diag_fs.h` 可被找到。
 
 ---
 
-## 使用方式
+## Usage
 
 ```
-diagfs [路徑] [選項]
+diagfs [PATH] [--all] [--real] [--pseudo]
+       [--output table|raw|json]
+       [--color auto|always|never]
+       [--fiemap]
 ```
 
-| 指令 | 說明 |
-|------|------|
-| `diagfs` | 掃描根目錄 `/` |
-| `diagfs /home` | 掃描指定路徑 |
-| `diagfs --all` | 掃描所有真實掛載點 |
-| `diagfs --help` | 顯示使用說明 |
+### 選項說明
+
+| 選項 | 說明 |
+|---|---|
+| `PATH` | 指定要分析的路徑（預設為 `/`）。分析的是該路徑所在的 mounted filesystem |
+| `--all` | 掃描所有掛載點 |
+| `--real` | （搭配 `--all`）只列真實 block-backed filesystem，跳過 pseudo fs（預設行為） |
+| `--pseudo` | （搭配 `--all`）包含 proc / sysfs / tmpfs / cgroup 等虛擬檔案系統 |
+| `--output table` | 人類可讀的表格輸出（預設） |
+| `--output raw` | 空白分隔的單行輸出，適合 shell pipeline |
+| `--output json` | JSON 格式輸出，適合程式解析或 `jq` |
+| `--color auto` | 根據 `isatty()` 自動決定是否顯示顏色（預設） |
+| `--color always` | 強制顯示顏色（例如透過 `less -R` 觀看時） |
+| `--color never` | 強制不顯示顏色，適合寫入檔案或 pipe |
+| `--fiemap` | 若 filesystem 不支援 FIEMAP，以 exit code 3 明確報錯（而非靜默略過） |
+| `--help` | 顯示使用說明 |
 
 ---
 
-## 輸出範例
+## Output Formats
+
+### Table（預設，給人看）
 
 ```
 diagfs - Filesystem Health Checker
 ------------------------------------------
 路徑        : /
 檔案系統類型: ext4
+[空間使用] 已使用 61440 KB / 總計 102400 KB (60%)
+[inode 使用] 8%
+[extent 觀察] 數量: 2 (low_extent_count)
 ------------------------------------------
-[空間使用]
-  總容量    : 102400 KB
-  已使用    : 61440 KB (60%)
-  可用空間  : 40960 KB
-------------------------------------------
-[inode 使用]
-  inode 總數: 131072
-  inode 剩餘: 120000
-  inode 使用: 8%
-------------------------------------------
-[碎片化分析]
-  extent 數量 : 2
-  邏輯大小    : 4096 bytes
-  實體大小    : 4096 bytes
-  碎片化程度  : 良好（連續存放）
-------------------------------------------
+```
+
+### Raw（給 shell script）
+
+```
+/ ext4 102400 61440 40960 60 8 2 ok ok
+```
+
+欄位順序：`PATH TYPE TOTAL_KB USED_KB FREE_KB USE% INODE% EXTENT_COUNT SPACE_HEALTH INODE_HEALTH`
+
+### JSON（給程式處理）
+
+```json
+{
+  "filesystems": [
+    {
+      "path": "/",
+      "type": "ext4",
+      "usage": {
+        "total_kb": 102400,
+        "used_kb": 61440,
+        "free_kb": 40960,
+        "used_percent": 60
+      },
+      "inode": {
+        "total": 131072,
+        "free": 120000,
+        "used_percent": 8
+      },
+      "layout": {
+        "fiemap_supported": true,
+        "extent_count": 2,
+        "observation": "low_extent_count"
+      },
+      "health": {
+        "space": "ok",
+        "inode": "ok",
+        "layout": "ok"
+      },
+      "warnings": []
+    }
+  ]
+}
 ```
 
 ---
 
-## 顏色說明
+## Exit Codes
 
-| 顏色 | 使用率範圍 | 意義 |
-|------|-----------|------|
-| 綠色 | 0% ~ 69%  | 正常 |
-| 黃色 | 70% ~ 89% | 注意 |
-| 紅色 | 90% 以上  | 警告 |
-
-inode 使用率超過 90% 時會另外顯示警告訊息。
+| Code | 意義 |
+|---|---|
+| `0` | 正常完成 |
+| `1` | 執行期錯誤（`statfs` 失敗、mount table 無法讀取） |
+| `2` | 參數錯誤（未知選項、缺少引數） |
+| `3` | 功能不支援（`--fiemap` 但 filesystem 不支援 FIEMAP） |
 
 ---
 
-## 與系統工具比對
+## Health Policy
 
-`diagfs` 的輸出數據可與以下系統內建工具比對驗證：
+預設閾值定義於 `diagfs_policy.c`：
+
+| 指標 | WARN | CRITICAL |
+|---|---|---|
+| 空間使用率 | ≥ 70% | ≥ 90% |
+| inode 使用率 | ≥ 70% | ≥ 90% |
+| extent 數量 | > 10 | > 50 |
+
+> inode 使用率採用 **ceiling（無條件進位）** 計算。
+> 原因：inode 耗盡會直接導致無法建立新檔案，屬於高風險狀態，保守進位確保提早觸發警告閾值。
+
+---
+
+## FIEMAP Extent Layout Observation
+
+FIEMAP 提供的是**單一檔案的 extent layout metadata**，而非整個 filesystem 的完整 fragmentation score。`diagfs` 以 `extent_count` 作為粗略觀察指標，不宣稱完整的 fragmentation benchmark。
+
+| Observation | 意義 |
+|---|---|
+| `low_extent_count` | extent 數量較少，推測該檔案配置較為連續 |
+| `medium_extent_count` | 數量普通，有輕度分散 |
+| `high_extent_count` | 數量偏多，推測檔案實體佈局較分散 |
+| `unsupported` | 此 filesystem 不支援 FIEMAP |
+
+---
+
+## Pipeline 範例
 
 ```bash
-df -h /       # 比對空間使用率
-df -i /       # 比對 inode 使用率
+# 找出空間使用率達 critical 的掛載點
+diagfs --output raw | awk '$8 == "critical" { print $1 }'
+
+# 找出 inode 達 critical 的掛載點
+diagfs --output json | jq '.filesystems[] | select(.health.inode=="critical")'
+
+# 輸出報告至檔案（不含顏色碼）
+diagfs --all --output json --color never | tee report.json
+
+# 掃描所有掛載點（含 pseudo filesystem）
+diagfs --all --pseudo --output table
 ```
 
 ---
 
-## 依賴
+## Benchmark 對照
 
-- `libdiag`（本專案共用模組，負責底層資料收集）
-- Linux kernel 2.6.23 以上（FIEMAP 支援需 kernel 2.6.28 以上）
+| diagfs 功能 | 對照工具 |
+|---|---|
+| disk usage | `df -k` |
+| inode usage | `df -i` |
+| filesystem type | `df -T` / `stat -f` |
+| mount traversal | `findmnt` / `/proc/self/mounts` |
+| FIEMAP extent observation | `filefrag -v` |
+
+`diagfs` 的 disk usage 與 inode usage 以 `df -k` / `df -i` 交叉驗證；FIEMAP `extent_count` 則與 `filefrag -v` 的 extent 輸出比對。
 
 ---
 
-## 專案結構
+## Future Work
 
-```
-tools/diagfs/
-├── diagfs.c     # 主程式
-├── Makefile     # 編譯設定
-└── README.md    # 本文件
-```
+- `statvfs` backend 提升可攜性
+- `--fiemap` 支援 `--all` 模式
+- `is_remote` 欄位實作（NFS / CIFS 偵測）
+- filesystem-specific policy profile（btrfs / xfs / ext4 各異閾值）
+- `DIAGFS_FLAG_READONLY` / `DIAGFS_FLAG_REMOTE` flags 實際填入
+- mount namespace awareness report
