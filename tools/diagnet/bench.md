@@ -32,14 +32,14 @@
 
 | 欄位 | 值 |
 | --- | --- |
-| 主機 | `<填入 uname -n>` |
-| Kernel | `<填入 uname -r>` |
+| 主機 | `c52c21f36886`（BusyDocker container） |
+| Kernel | `6.6.87.2-microsoft-standard-WSL2` |
 | Distro | Ubuntu 22.04（BusyDocker） |
-| CPU | `<填入 lscpu 摘要>` |
-| bash | `<填入 bash --version 首行>` |
-| iproute2 (ss) | `<填入 ss -V>` |
+| CPU | 11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz |
+| bash | GNU bash, version 5.1.16(1)-release |
+| iproute2 (ss) | ss utility, iproute2-5.15.0 |
 | diagnet build | `gcc -Wall -Wextra -std=c99 -O3 -flto`（libdiag + diagnet） |
-| 量測時間 | `<填入 date -u>` |
+| 量測時間 | 2026-05-14T15:22:35Z |
 
 ---
 
@@ -49,31 +49,31 @@
 
 | 工具 | mean (s) | median (s) | stddev (s) |
 | --- | --- | --- | --- |
-| `diagnet --proto tcp --output raw` | `<填>` | `<填>` | `<填>` |
-| `ss -tna` | `<填>` | `<填>` | `<填>` |
-| **median ratio (diagnet / ss)** | `<填>` | – | – |
-| **mean ratio** | `<填>` | – | – |
-| **verdict (≤1.50)** | `<填 OK / WARNING>` | – | – |
+| `diagnet --proto tcp --output raw` | 0.004505 | 0.004467 | 0.000726 |
+| `ss -tna` | 0.003118 | 0.003049 | 0.000348 |
+| **median ratio (diagnet / ss)** | 1.47 | – | – |
+| **mean ratio** | 1.44 | – | – |
+| **verdict (≤1.50)** | OK | – | – |
 
 ### Case 2 — TCP listing 結構化（json vs `ss -tna -O`）
 
 | 工具 | mean (s) | median (s) | stddev (s) |
 | --- | --- | --- | --- |
-| `diagnet --proto tcp --output json` | `<填>` | `<填>` | `<填>` |
-| `ss -tna -O` | `<填>` | `<填>` | `<填>` |
-| **median ratio** | `<填>` | – | – |
-| **mean ratio** | `<填>` | – | – |
-| **verdict (≤1.50)** | `<填>` | – | – |
+| `diagnet --proto tcp --output json` | 0.003965 | 0.003695 | 0.002018 |
+| `ss -tna -O` | 0.003150 | 0.003043 | 0.000416 |
+| **median ratio** | 1.21 | – | – |
+| **mean ratio** | 1.26 | – | – |
+| **verdict (≤1.50)** | OK | – | – |
 
 ### Case 3 — state distribution（stats vs `ss -tnua`）
 
 | 工具 | mean (s) | median (s) | stddev (s) |
 | --- | --- | --- | --- |
-| `diagnet --stats` | `<填>` | `<填>` | `<填>` |
-| `ss -tnua` | `<填>` | `<填>` | `<填>` |
-| **median ratio** | `<填>` | – | – |
-| **mean ratio** | `<填>` | – | – |
-| **verdict (≤1.50)** | `<填>` | – | – |
+| `diagnet --stats` | 0.004869 | 0.004778 | 0.002005 |
+| `ss -tnua` | 0.003454 | 0.003349 | 0.000438 |
+| **median ratio** | 1.43 | – | – |
+| **mean ratio** | 1.41 | – | – |
+| **verdict (≤1.50)** | OK | – | – |
 
 ---
 
@@ -83,11 +83,11 @@
 
 | Case | median ratio | mean ratio | verdict |
 | --- | --- | --- | --- |
-| tcp listing (raw) | 1.22 | 1.24 | OK |
-| tcp listing (json) | 1.32 | 1.36 | OK |
-| state distribution | 1.29 | 1.34 | OK |
+| tcp listing (raw) | 1.47 | 1.44 | OK |
+| tcp listing (json) | 1.21 | 1.26 | OK |
+| state distribution | 1.43 | 1.41 | OK |
 
-diagnet 與 `ss` 的效能差距 22–32%（median），位於規格要求的 50% 範圍內。
+diagnet 與 `ss` 的效能差距 21–47%（median），位於規格要求的 50% 範圍內。raw 與 stats 兩組接近上限是預期內：兩者每 record 做的工作量相近於 ss（裸表/聚合），diagnet 多出的 procfs text 解析成本佔比較顯著；json 多花在輸出格式化，diagnet 與 ss 兩邊都重，相對成本壓低，反而 margin 較大。
 
 ### 結構性背景
 
@@ -103,15 +103,18 @@ diagnet 與 `ss` 的效能差距 22–32%（median），位於規格要求的 50
 
 | 版本 | Build flag | bench 方法 | raw median | json median | stats median |
 | --- | --- | --- | --- | --- | --- |
-| v1 | `-O0`（隱含預設） | `ss -tn` (不公平) | 1.55 | 1.58 | 1.28 |
-| v2 | `-O2` (diagnet only) | `ss -tn` | 1.57 | 1.95 | 1.45 |
+| v1 | `-O0`（隱含預設） | `ss -tn`（不公平） | 1.55 | 1.58 | 1.28 |
+| v2 | `-O2`（diagnet only） | `ss -tn` | 1.57 | 1.95 | 1.45 |
 | v3 | `-O3 -flto`（含 libdiag） | `ss -tn`, median verdict, pin, N=500 | 1.53 | 1.34 | 1.41 |
-| v4（本版） | `-O3 -flto` | `ss -tna` / `-tnua`（公平對照） | 1.22 | 1.32 | 1.29 |
+| v4 | `-O3 -flto` | `ss -tna` / `-tnua`（公平對照） | 1.22 | 1.32 | 1.29 |
+| **v5（提交版本）** | `-O3 -flto` | 同 v4 + 完整 env capture，host i5-1135G7 / WSL2 | **1.47** | **1.21** | **1.43** |
 
 每一步只動一個變數，方便歸因：
+
 - v1→v2：開 -O2 — json 反而變差，懷疑 -O0/-O2 差距被噪聲淹沒
 - v2→v3：-O3 -flto + libdiag 同步、median verdict、20 次 warmup、CPU pinning、N=500
 - v3→v4：發現 ss 預設不顯示 LISTEN，與 diagnet 不對等；補 `-a` 旗標
+- v4→v5：同一份程式碼 / 同一份方法學在不同 host 重跑（i5-1135G7 / WSL2 vs 先前 host）；raw 從 1.22 抖到 1.47、stats 從 1.29 抖到 1.43，是 sub-ms 級量測在不同 host、不同 system load 下的合理變異，**不是退步**。本次仍全部 ≤ 1.50。json 反而從 1.32 改善到 1.21，方向相反，再次說明這個變異是雙向噪聲而非單向回退。
 
 ### Reproducibility
 

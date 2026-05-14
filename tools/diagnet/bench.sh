@@ -115,9 +115,9 @@ parse_median() {
 }
 
 echo "diagnet benchmark — N=$N iterations per case (plus $WARMUP warmup)"
-echo "kernel:  $(uname -r)"
-echo "host:    $(uname -n)"
-echo "date:    $(date -u +%FT%TZ)"
+echo "kernel: $(uname -r)"
+echo "host:   $(uname -n)"
+echo "date:   $(date -u +%FT%TZ)"
 echo
 
 # Use a temp file so we can pair diagnet/ss results and compute ratios.
