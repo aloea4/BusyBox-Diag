@@ -259,7 +259,7 @@ diagnet 採 GNU `ss` / Toybox 的 long-option 慣例（`--proto`、`--listen`、
 | `--stats` | `ss -ant \| awk` 自行統計 | `netstat -s` 不同語意 | – | diagnet 提供 state distribution + streaming 不存記憶體 |
 | `--suspicious` | （無對應） | （無對應） | （無對應） | diagnet 新增的 heuristic 觀察 |
 | `--help` | `ss --help` | `netstat --help` | `netstat --help` | 一致 |
-| Exit code | 0 / 非 0 | 0 / 非 0 | 0 / 非 0 | diagnet 多區分 usage error = 2、unsupported = 3 |
+| Exit code | 0 / 非 0 | 0 / 非 0 | 0 / 非 0 | diagnet 多區分 usage error = 2；3 目前保留未使用 |
 
 ### 設計原則
 

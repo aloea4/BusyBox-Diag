@@ -1,0 +1,9 @@
+case_id,tool,variant,time_sec
+M3-PTOP-01,ptop,custom,1.017196032
+M3-PTOP-01,ptop,reference,1.178500608
+M3-PTOP-01,ptop,custom,1.017651200
+M3-PTOP-01,ptop,reference,1.189296896
+M3-DIAGFS-01,diagfs,custom,0.009218304
+M3-DIAGFS-01,diagfs,reference,0.010784000
+M3-DIAGFS-01,diagfs,custom,0.012060672
+M3-DIAGFS-01,diagfs,reference,0.010382848

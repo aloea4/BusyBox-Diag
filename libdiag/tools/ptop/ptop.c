@@ -18,6 +18,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <getopt.h>
 
 /* ----------------------------
  * Dual-mode BusyBox glue
@@ -58,7 +59,8 @@ static void PTOP_USAGE(void)
         "  -p PID     filter by pid\n"
         "  -S STATE   filter by process state (R/S/D/Z/...)\n"
         "  -s MODE    sort mode: pid|cpu|rss (default pid)\n"
-        "  -h         help\n"
+        "  -h, --help  help\n"
+        "  --output FMT table|raw|json (alias of -b|-r|-j)\n"
     );
 }
 #endif
@@ -67,18 +69,12 @@ static void PTOP_USAGE(void)
  * Helpers
  * ---------------------------- */
 
-static ptop_sort_mode_t parse_sort_mode(const char *s)
+static int parse_sort_mode_safe(const char *s, ptop_sort_mode_t *out)
 {
-    if (strcmp(s, "pid") == 0) return PTOP_SORT_PID;
-    if (strcmp(s, "cpu") == 0) return PTOP_SORT_CPU;
-    if (strcmp(s, "rss") == 0) return PTOP_SORT_RSS;
-
-#ifdef BUSYBOX
-    PTOP_DIE("invalid sort mode", s);
-#else
-    PTOP_DIE("invalid sort mode", s);
-#endif
-    return PTOP_SORT_PID;
+    if (strcmp(s, "pid") == 0) { *out = PTOP_SORT_PID; return 0; }
+    if (strcmp(s, "cpu") == 0) { *out = PTOP_SORT_CPU; return 0; }
+    if (strcmp(s, "rss") == 0) { *out = PTOP_SORT_RSS; return 0; }
+    return -1;
 }
 
 static int cmp_pid(const void *a, const void *b)
@@ -140,6 +136,7 @@ int ptop_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int PTOP_ENTRY_NAME(int argc, char **argv)
 {
     ptop_config_t cfg;
+    int rc = 0;
 
     cfg.delay_sec = 1;
     cfg.loops = -1;
@@ -151,18 +148,31 @@ int PTOP_ENTRY_NAME(int argc, char **argv)
     cfg.filter_state = 0;
 
     int opt;
-    while ((opt = getopt(argc, argv, "d:n:brj1t:s:p:S:h")) != -1) {
+    ptop_sort_mode_t sort_mode_tmp;
+    enum { OPT_OUTPUT = 256 };
+    static const struct option long_opts[] = {
+        {"help", no_argument, NULL, 'h'},
+        {"output", required_argument, NULL, OPT_OUTPUT},
+        {NULL, 0, NULL, 0}
+    };
+
+    optind = 1;
+    while ((opt = getopt_long(argc, argv, "d:n:brj1t:s:p:S:h", long_opts, NULL)) != -1) {
         switch (opt) {
         case 'd':
             cfg.delay_sec = atoi(optarg);
-            if (cfg.delay_sec <= 0)
-                PTOP_DIE("invalid delay", optarg);
+            if (cfg.delay_sec <= 0) {
+                PTOP_ERR("invalid delay: %s", optarg);
+                return 2;
+            }
             break;
 
         case 'n':
             cfg.loops = atoi(optarg);
-            if (cfg.loops <= 0)
-                PTOP_DIE("invalid count", optarg);
+            if (cfg.loops <= 0) {
+                PTOP_ERR("invalid count: %s", optarg);
+                return 2;
+            }
             break;
 
         case 'b':
@@ -181,28 +191,54 @@ int PTOP_ENTRY_NAME(int argc, char **argv)
 
         case 't':
             cfg.top_n = atoi(optarg);
-            if (cfg.top_n < 0)
-                PTOP_DIE("invalid top value", optarg);
+            if (cfg.top_n < 0) {
+                PTOP_ERR("invalid top value: %s", optarg);
+                return 2;
+            }
             break;
 
         case 's':
-            cfg.sort_mode = parse_sort_mode(optarg);
+            if (parse_sort_mode_safe(optarg, &sort_mode_tmp) != 0) {
+                PTOP_ERR("invalid sort mode: %s", optarg);
+                return 2;
+            }
+            cfg.sort_mode = sort_mode_tmp;
             break;
         case 'p':
             cfg.filter_pid = (pid_t)atoi(optarg);
-            if (cfg.filter_pid <= 0)
-                PTOP_DIE("invalid pid", optarg);
+            if (cfg.filter_pid <= 0) {
+                PTOP_ERR("invalid pid: %s", optarg);
+                return 2;
+            }
             break;
         case 'S':
-            if (optarg[0] == '\0' || optarg[1] != '\0')
-                PTOP_DIE("invalid state", optarg);
+            if (optarg[0] == '\0' || optarg[1] != '\0') {
+                PTOP_ERR("invalid state: %s", optarg);
+                return 2;
+            }
             cfg.filter_state = (char)toupper((unsigned char)optarg[0]);
             break;
 
+        case OPT_OUTPUT:
+            if (strcmp(optarg, "table") == 0) {
+                cfg.mode = PTOP_MODE_BATCH;
+            } else if (strcmp(optarg, "raw") == 0) {
+                cfg.mode = PTOP_MODE_RAW;
+            } else if (strcmp(optarg, "json") == 0) {
+                cfg.mode = PTOP_MODE_JSON;
+            } else {
+                PTOP_ERR("invalid output mode: %s", optarg);
+                return 2;
+            }
+            break;
+
         case 'h':
-        default:
             PTOP_USAGE();
             return 0;
+        case '?':
+        default:
+            PTOP_USAGE();
+            return 2;
         }
     }
 
@@ -238,12 +274,14 @@ int PTOP_ENTRY_NAME(int argc, char **argv)
 
         if (ptop_snapshot_collect(&curr) < 0) {
             PTOP_ERR("failed to collect snapshot");
+            rc = 1;
             break;
         }
 
         if (ptop_delta_compute(&prev, &curr, &delta) < 0) {
             PTOP_ERR("failed to compute delta");
             ptop_snapshot_free(&curr);
+            rc = 1;
             break;
         }
 
@@ -275,5 +313,5 @@ int PTOP_ENTRY_NAME(int argc, char **argv)
         ptop_terminal_restore();
     }
 
-    return 0;
+    return rc;
 }

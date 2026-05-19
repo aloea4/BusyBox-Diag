@@ -1,0 +1,5 @@
+# BusyBox Binary Size
+UTC Timestamp: 2026-05-19 11:54:44
+-rwxr-xr-x 1 root root 1.1M May 19 11:36 /root/workspace/busybox-1.36.1/busybox
+   text	   data	    bss	    dec	    hex	filename
+1089963	  17287	   1832	1109082	 10ec5a	/root/workspace/busybox-1.36.1/busybox

@@ -1,0 +1,2 @@
+scripts/verify_busybox_diag.sh
+bash demo/run_demo.sh

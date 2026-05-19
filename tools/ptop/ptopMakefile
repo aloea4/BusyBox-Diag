@@ -1,0 +1,73 @@
+# tools/ptop/Makefile
+# Dual build rules:
+#   - Standalone build: produce tools/ptop/ptop binary (uses main())
+#   - BusyBox build:    produce ptop applet objects (uses ptop_main())
+
+# ---------------------------------------------------------
+# BusyBox build integration (applets)
+# ---------------------------------------------------------
+obj-$(CONFIG_PTOP) += ptop_applet.o
+
+ptop_applet-y := \
+    ptop_applet.o \
+    ptop_snapshot.o \
+    ptop_delta.o \
+    ptop_tree.o \
+    ptop_filter.o \
+    ptop_policy.o \
+    ptop_render_tty.o \
+    ptop_output.o \
+    ptop_signal.o
+
+# BusyBox compile flags for applet mode
+CFLAGS_ptop_applet.o := -DBUSYBOX
+
+
+# ---------------------------------------------------------
+# Standalone build integration (optional local binary)
+# ---------------------------------------------------------
+# Only built when you run:
+#   make -C tools/ptop standalone
+# or when your top-level Makefile calls it.
+
+PTOP_STANDALONE_BIN := ptop
+
+PTOP_STANDALONE_OBJ := \
+    ptop_standalone.o \
+    ptop_snapshot.o \
+    ptop_delta.o \
+    ptop_tree.o \
+    ptop_filter.o \
+    ptop_policy.o \
+    ptop_render_tty.o \
+    ptop_output.o \
+    ptop_signal.o
+
+# Standalone compile flags: NO -DBUSYBOX
+CFLAGS_ptop_standalone.o :=
+PTOP_LOCAL_CPPFLAGS := -I../../libdiag/include
+PTOP_LOCAL_LDLIBS := ../../libdiag/libdiag.a
+CPPFLAGS += $(PTOP_LOCAL_CPPFLAGS)
+
+# Build standalone executable
+standalone: $(PTOP_STANDALONE_BIN)
+
+$(PTOP_STANDALONE_BIN): $(PTOP_STANDALONE_OBJ)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(PTOP_LOCAL_LDLIBS)
+
+# Compile ptop.c into standalone object
+ptop_standalone.o: ptop.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(PTOP_LOCAL_CPPFLAGS) $(CFLAGS_ptop_standalone.o) -c -o $@ $<
+
+# Compile ptop.c into BusyBox applet object
+ptop_applet.o: ptop.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(PTOP_LOCAL_CPPFLAGS) $(CFLAGS_ptop_applet.o) -c -o $@ $<
+
+# cleanup standalone artifacts
+clean-standalone:
+	rm -f $(PTOP_STANDALONE_BIN) ptop_standalone.o
+
+# minimal ptop tests
+test: standalone
+	./tests/run_tests.sh
+

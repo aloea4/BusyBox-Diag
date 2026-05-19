@@ -13,6 +13,9 @@
 
 set -u
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
 DIAGNET=./diagnet
 LOG=test_diagnet.log
 SUMMARY=test_summary.txt

@@ -1,12 +1,23 @@
-CC      = gcc
-# 將 -O2 和 -DDIAGFS_STANDALONE 加進編譯參數中
-CFLAGS = -O3 -flto -DDIAGFS_STANDALONE -Wall -Wextra -std=c99 -I../../libdiag/include
-LIBS    = ../../libdiag/libdiag.a
+CC := gcc
 
-SRCS = diagfs.c diagfs_analyze.c diagfs_policy.c diagfs_output.c diagfs_mount.c
+OPT ?= -O3 -flto
+CFLAGS := -Wall -Wextra -std=c99 $(OPT) -DDIAGFS_STANDALONE -I../../libdiag/include
+LIBDIAG_DIR := ../../libdiag
+LIBDIAG_A := $(LIBDIAG_DIR)/libdiag.a
+LIBDIAG_CFLAGS := -Wall -Wextra -std=c99 $(OPT) -Iinclude
 
-diagfs: $(SRCS)
-	$(CC) $(CFLAGS) $(SRCS) $(LIBS) -o diagfs
+SRCS := diagfs.c diagfs_analyze.c diagfs_policy.c diagfs_output.c diagfs_mount.c
+
+.PHONY: all clean libdiag
+
+all: diagfs
+
+libdiag $(LIBDIAG_A):
+	$(MAKE) -C $(LIBDIAG_DIR) CFLAGS="$(LIBDIAG_CFLAGS)"
+
+diagfs: $(SRCS) $(LIBDIAG_A)
+	$(CC) $(CFLAGS) $(SRCS) $(LIBDIAG_A) -o $@
 
 clean:
 	rm -f diagfs
+	$(MAKE) -C $(LIBDIAG_DIR) clean

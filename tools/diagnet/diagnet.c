@@ -57,7 +57,7 @@ static void print_help(void)
     printf("  --quiet              Suppress global warnings on stderr\n");
     printf("  -h, --help           Show this help\n");
     printf("\n");
-    printf("Exit codes: 0=ok, 1=runtime error, 2=usage error, 3=unsupported\n");
+    printf("Exit codes: 0=ok, 1=runtime error, 2=usage error, 3=reserved (unused)\n");
 }
 
 int diagnet_main(int argc, char *argv[])

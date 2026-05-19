@@ -17,7 +17,9 @@ static int is_pseudo_fs(const char *fstype)
 
 int scan_all_mounts(diagfs_output_format_t out_format,
                     const diagfs_policy_t *policy,
-                    diagfs_scan_filter_t filter)
+                    diagfs_scan_filter_t filter,
+                    int no_header,
+                    int quiet)
 {
     FILE *fp;
     char line[2048]; /* 擴大讀取緩衝區 */
@@ -33,7 +35,7 @@ int scan_all_mounts(diagfs_output_format_t out_format,
 
     if (out_format == DIAGFS_OUT_JSON) {
         printf("{\n  \"filesystems\": [\n");
-    } else if (out_format == DIAGFS_OUT_TABLE) {
+    } else if (out_format == DIAGFS_OUT_TABLE && !no_header) {
         printf("diagfs - 掃描所有掛載點\n");
         printf("------------------------------------------\n");
     }
@@ -57,8 +59,8 @@ int scan_all_mounts(diagfs_output_format_t out_format,
 
         diag_fs_info_t fs;
         if (diag_fs_read(entry.target, &fs) != DIAG_OK) {
-            /* 修復：不再靜默失敗，給除錯者留下一點線索 */
-            fprintf(stderr, "Warning: 無法讀取掛載點 %s，已跳過。\n", entry.target);
+            if (!quiet)
+                fprintf(stderr, "Warning: 無法讀取掛載點 %s，已跳過。\n", entry.target);
             continue;
         }
 

@@ -1,0 +1,9 @@
+# Manual Test Summary
+Generated from Phase 2-2/2-4 command set and latest verification status.
+UTC Timestamp: 2026-05-19 11:54:50
+- Applet registration: PASS
+- diagfs help/table/raw/json: PASS
+- diagnet help/table/raw/json: PASS
+- ptop help/table/raw/json: PASS
+- BusyBox symlink dispatch: PASS
+- build/verify/demo scripts: PASS

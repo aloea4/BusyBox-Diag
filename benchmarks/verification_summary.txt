@@ -1,0 +1,248 @@
+# BusyBox-Diag Runtime Verification
+UTC Timestamp: 2026-05-19 11:54:44
+
+## diagfs --output raw /
+/ unknown 1055762868 136512672 865546724 12 3 0 ok ok
+
+## diagnet --output raw
+tcp 0.0.0.0 22 0.0.0.0 0 LISTEN public_listen
+tcp 127.0.0.1 33725 0.0.0.0 0 LISTEN suspicious_port
+tcp 172.17.0.2 57548 104.20.28.246 80 TIME_WAIT -
+tcp 172.17.0.2 60732 172.64.155.209 443 TIME_WAIT -
+tcp 127.0.0.1 56016 127.0.0.1 33725 ESTABLISHED -
+tcp 172.17.0.2 57476 172.64.155.209 443 ESTABLISHED -
+tcp 172.17.0.2 40682 104.18.32.47 443 TIME_WAIT -
+tcp 127.0.0.1 33725 127.0.0.1 56016 ESTABLISHED -
+tcp 172.17.0.2 49210 172.64.155.209 443 TIME_WAIT -
+tcp 172.17.0.2 41826 104.18.32.47 443 ESTABLISHED -
+tcp 172.17.0.2 50486 104.18.32.47 443 TIME_WAIT -
+tcp 172.17.0.2 36048 172.64.155.209 443 ESTABLISHED -
+tcp 172.17.0.2 57534 104.20.28.246 80 TIME_WAIT -
+tcp 172.17.0.2 40686 104.18.32.47 443 TIME_WAIT -
+tcp 172.17.0.2 57526 104.20.28.246 80 TIME_WAIT -
+tcp 127.0.0.1 56030 127.0.0.1 33725 ESTABLISHED -
+tcp 127.0.0.1 33725 127.0.0.1 56030 ESTABLISHED -
+
+## ptop --output raw -1 -n 5
+ptop_raw ts=98158.819530712 procs=44 cpu=13.4 mem_total_kb=24493256 mem_free_kb=16479592 buffers_kb=726436 cached_kb=3944928 swap_total_kb=6291456 swap_free_kb=6291456
+pid=1 ppid=0 comm=sshd state=S rss_kb=8576 cpu=0.00
+pid=152 ppid=0 comm=sh state=S rss_kb=1536 cpu=0.00
+pid=164 ppid=152 comm=node state=S rss_kb=58144 cpu=0.00
+pid=170 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=199 ppid=170 comm=node state=S rss_kb=184024 cpu=0.00
+pid=404 ppid=199 comm=node state=S rss_kb=80480 cpu=0.17
+pid=11890 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=11907 ppid=11890 comm=node state=S rss_kb=56284 cpu=0.00
+pid=20996 ppid=0 comm=sh state=S rss_kb=1536 cpu=0.08
+pid=21059 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=21769 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=21789 ppid=21769 comm=node state=S rss_kb=56944 cpu=0.00
+pid=21913 ppid=43373 comm=bash state=S rss_kb=3456 cpu=0.00
+pid=21919 ppid=21913 comm=bash state=S rss_kb=3328 cpu=0.00
+pid=21934 ppid=21919 comm=busybox state=R rss_kb=2432 cpu=0.00
+pid=21938 ppid=21059 comm=sleep state=S rss_kb=1408 cpu=0.00
+pid=21941 ppid=20996 comm=sleep state=S rss_kb=1536 cpu=0.00
+pid=21949 ppid=404 comm=sh state=S rss_kb=1536 cpu=0.00
+pid=21950 ppid=21949 comm=cpuUsage.sh state=S rss_kb=2944 cpu=0.00
+pid=21953 ppid=21950 comm=sleep state=S rss_kb=1408 cpu=0.00
+pid=22590 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=22642 ppid=22590 comm=node state=S rss_kb=55860 cpu=0.00
+pid=28688 ppid=0 comm=node state=S rss_kb=58516 cpu=0.00
+pid=28707 ppid=0 comm=node state=S rss_kb=63240 cpu=0.00
+pid=28791 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=28843 ppid=28791 comm=node state=S rss_kb=56080 cpu=0.00
+pid=33975 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=34017 ppid=33975 comm=node state=S rss_kb=56012 cpu=0.00
+pid=40378 ppid=63808 comm=node state=S rss_kb=84660 cpu=0.00
+pid=40642 ppid=63808 comm=node state=S rss_kb=68084 cpu=0.00
+pid=43141 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=43190 ppid=43141 comm=node state=S rss_kb=56356 cpu=0.00
+pid=43373 ppid=404 comm=bash state=S rss_kb=3968 cpu=0.00
+pid=63314 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63576 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63681 ppid=63576 comm=node state=S rss_kb=50556 cpu=0.00
+pid=63764 ppid=199 comm=node state=S rss_kb=75956 cpu=0.00
+pid=63808 ppid=199 comm=node state=S rss_kb=1134644 cpu=0.08
+pid=63936 ppid=63808 comm=codex state=S rss_kb=142160 cpu=0.00
+pid=76464 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=76479 ppid=76464 comm=node state=S rss_kb=58232 cpu=0.00
+pid=77726 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=77745 ppid=77726 comm=node state=S rss_kb=59476 cpu=0.00
+pid=82322 ppid=63808 comm=cpptools state=S rss_kb=59076 cpu=0.00
+ptop_raw ts=98159.821020087 procs=44 cpu=2.0 mem_total_kb=24493256 mem_free_kb=16475228 buffers_kb=726436 cached_kb=3944928 swap_total_kb=6291456 swap_free_kb=6291456
+pid=1 ppid=0 comm=sshd state=S rss_kb=8576 cpu=0.00
+pid=152 ppid=0 comm=sh state=S rss_kb=1536 cpu=0.00
+pid=164 ppid=152 comm=node state=S rss_kb=58144 cpu=0.00
+pid=170 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=199 ppid=170 comm=node state=S rss_kb=184024 cpu=0.00
+pid=404 ppid=199 comm=node state=S rss_kb=80480 cpu=0.00
+pid=11890 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=11907 ppid=11890 comm=node state=S rss_kb=56284 cpu=0.00
+pid=20996 ppid=0 comm=sh state=S rss_kb=1536 cpu=0.00
+pid=21059 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=21769 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=21789 ppid=21769 comm=node state=S rss_kb=56944 cpu=0.00
+pid=21913 ppid=43373 comm=bash state=S rss_kb=3456 cpu=0.00
+pid=21919 ppid=21913 comm=bash state=S rss_kb=3328 cpu=0.00
+pid=21934 ppid=21919 comm=busybox state=R rss_kb=2432 cpu=0.00
+pid=21949 ppid=404 comm=sh state=S rss_kb=1536 cpu=0.00
+pid=21950 ppid=21949 comm=cpuUsage.sh state=S rss_kb=2944 cpu=0.00
+pid=21961 ppid=21059 comm=sleep state=S rss_kb=1536 cpu=0.00
+pid=21964 ppid=20996 comm=sleep state=S rss_kb=1536 cpu=0.00
+pid=21966 ppid=21950 comm=cat state=R rss_kb=128 cpu=0.00
+pid=22590 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=22642 ppid=22590 comm=node state=S rss_kb=55860 cpu=0.00
+pid=28688 ppid=0 comm=node state=S rss_kb=58516 cpu=0.00
+pid=28707 ppid=0 comm=node state=S rss_kb=63240 cpu=0.00
+pid=28791 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=28843 ppid=28791 comm=node state=S rss_kb=56080 cpu=0.00
+pid=33975 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=34017 ppid=33975 comm=node state=S rss_kb=56012 cpu=0.00
+pid=40378 ppid=63808 comm=node state=S rss_kb=84660 cpu=0.00
+pid=40642 ppid=63808 comm=node state=S rss_kb=68084 cpu=0.00
+pid=43141 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=43190 ppid=43141 comm=node state=S rss_kb=56356 cpu=0.00
+pid=43373 ppid=404 comm=bash state=S rss_kb=3968 cpu=0.00
+pid=63314 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63576 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63681 ppid=63576 comm=node state=S rss_kb=50556 cpu=0.00
+pid=63764 ppid=199 comm=node state=S rss_kb=75956 cpu=0.00
+pid=63808 ppid=199 comm=node state=S rss_kb=1134772 cpu=0.33
+pid=63936 ppid=63808 comm=codex state=S rss_kb=142160 cpu=0.08
+pid=76464 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=76479 ppid=76464 comm=node state=S rss_kb=58232 cpu=0.00
+pid=77726 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=77745 ppid=77726 comm=node state=S rss_kb=59476 cpu=0.00
+pid=82322 ppid=63808 comm=cpptools state=S rss_kb=59076 cpu=0.00
+ptop_raw ts=98160.823047292 procs=44 cpu=4.5 mem_total_kb=24493256 mem_free_kb=16478188 buffers_kb=726436 cached_kb=3944916 swap_total_kb=6291456 swap_free_kb=6291456
+pid=1 ppid=0 comm=sshd state=S rss_kb=8576 cpu=0.00
+pid=152 ppid=0 comm=sh state=S rss_kb=1536 cpu=0.00
+pid=164 ppid=152 comm=node state=S rss_kb=58144 cpu=0.00
+pid=170 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=199 ppid=170 comm=node state=S rss_kb=184024 cpu=0.00
+pid=404 ppid=199 comm=node state=S rss_kb=80608 cpu=0.25
+pid=11890 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=11907 ppid=11890 comm=node state=S rss_kb=56284 cpu=0.00
+pid=21059 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=21769 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=21789 ppid=21769 comm=node state=S rss_kb=56944 cpu=0.00
+pid=21913 ppid=43373 comm=bash state=S rss_kb=3456 cpu=0.00
+pid=21919 ppid=21913 comm=bash state=S rss_kb=3328 cpu=0.00
+pid=21934 ppid=21919 comm=busybox state=R rss_kb=2432 cpu=0.00
+pid=21975 ppid=404 comm=sh state=S rss_kb=1536 cpu=0.00
+pid=21976 ppid=21975 comm=cpuUsage.sh state=S rss_kb=3072 cpu=0.00
+pid=21979 ppid=21976 comm=sleep state=S rss_kb=1536 cpu=0.00
+pid=21983 ppid=21059 comm=sleep state=S rss_kb=1536 cpu=0.00
+pid=21986 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=21993 ppid=21986 comm=sleep state=S rss_kb=1536 cpu=0.00
+pid=22590 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=22642 ppid=22590 comm=node state=S rss_kb=55860 cpu=0.00
+pid=28688 ppid=0 comm=node state=S rss_kb=58516 cpu=0.00
+pid=28707 ppid=0 comm=node state=S rss_kb=63240 cpu=0.00
+pid=28791 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=28843 ppid=28791 comm=node state=S rss_kb=56080 cpu=0.00
+pid=33975 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=34017 ppid=33975 comm=node state=S rss_kb=56012 cpu=0.00
+pid=40378 ppid=63808 comm=node state=S rss_kb=84660 cpu=0.00
+pid=40642 ppid=63808 comm=node state=S rss_kb=68084 cpu=0.00
+pid=43141 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=43190 ppid=43141 comm=node state=S rss_kb=56356 cpu=0.00
+pid=43373 ppid=404 comm=bash state=S rss_kb=3968 cpu=0.00
+pid=63314 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63576 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63681 ppid=63576 comm=node state=S rss_kb=50556 cpu=0.00
+pid=63764 ppid=199 comm=node state=S rss_kb=75956 cpu=0.00
+pid=63808 ppid=199 comm=node state=S rss_kb=1134772 cpu=0.50
+pid=63936 ppid=63808 comm=codex state=S rss_kb=142160 cpu=0.00
+pid=76464 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=76479 ppid=76464 comm=node state=S rss_kb=58232 cpu=0.00
+pid=77726 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=77745 ppid=77726 comm=node state=S rss_kb=59476 cpu=0.00
+pid=82322 ppid=63808 comm=cpptools state=S rss_kb=59076 cpu=0.00
+ptop_raw ts=98161.824782981 procs=41 cpu=0.8 mem_total_kb=24493256 mem_free_kb=16477432 buffers_kb=726436 cached_kb=3944920 swap_total_kb=6291456 swap_free_kb=6291456
+pid=1 ppid=0 comm=sshd state=S rss_kb=8576 cpu=0.00
+pid=152 ppid=0 comm=sh state=S rss_kb=1536 cpu=0.00
+pid=164 ppid=152 comm=node state=S rss_kb=58144 cpu=0.00
+pid=170 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=199 ppid=170 comm=node state=S rss_kb=184024 cpu=0.00
+pid=404 ppid=199 comm=node state=S rss_kb=80608 cpu=0.08
+pid=11890 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=11907 ppid=11890 comm=node state=S rss_kb=56284 cpu=0.00
+pid=21059 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.08
+pid=21769 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=21789 ppid=21769 comm=node state=S rss_kb=56944 cpu=0.00
+pid=21913 ppid=43373 comm=bash state=S rss_kb=3456 cpu=0.00
+pid=21919 ppid=21913 comm=bash state=S rss_kb=3328 cpu=0.00
+pid=21934 ppid=21919 comm=busybox state=R rss_kb=2432 cpu=0.00
+pid=21986 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=22000 ppid=21059 comm=sleep state=S rss_kb=1408 cpu=0.00
+pid=22003 ppid=21986 comm=sleep state=S rss_kb=1536 cpu=0.00
+pid=22590 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=22642 ppid=22590 comm=node state=S rss_kb=55860 cpu=0.00
+pid=28688 ppid=0 comm=node state=S rss_kb=58516 cpu=0.00
+pid=28707 ppid=0 comm=node state=S rss_kb=63240 cpu=0.00
+pid=28791 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=28843 ppid=28791 comm=node state=S rss_kb=56080 cpu=0.00
+pid=33975 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=34017 ppid=33975 comm=node state=S rss_kb=56012 cpu=0.00
+pid=40378 ppid=63808 comm=node state=S rss_kb=84660 cpu=0.00
+pid=40642 ppid=63808 comm=node state=S rss_kb=68084 cpu=0.00
+pid=43141 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=43190 ppid=43141 comm=node state=S rss_kb=56356 cpu=0.00
+pid=43373 ppid=404 comm=bash state=S rss_kb=3968 cpu=0.00
+pid=63314 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63576 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63681 ppid=63576 comm=node state=S rss_kb=50556 cpu=0.00
+pid=63764 ppid=199 comm=node state=S rss_kb=75956 cpu=0.00
+pid=63808 ppid=199 comm=node state=S rss_kb=1134772 cpu=0.00
+pid=63936 ppid=63808 comm=codex state=S rss_kb=142160 cpu=0.00
+pid=76464 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=76479 ppid=76464 comm=node state=S rss_kb=58232 cpu=0.00
+pid=77726 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=77745 ppid=77726 comm=node state=S rss_kb=59476 cpu=0.00
+pid=82322 ppid=63808 comm=cpptools state=S rss_kb=59076 cpu=0.00
+ptop_raw ts=98162.827775039 procs=41 cpu=1.1 mem_total_kb=24493256 mem_free_kb=16480036 buffers_kb=726436 cached_kb=3944920 swap_total_kb=6291456 swap_free_kb=6291456
+pid=1 ppid=0 comm=sshd state=S rss_kb=8576 cpu=0.00
+pid=152 ppid=0 comm=sh state=S rss_kb=1536 cpu=0.00
+pid=164 ppid=152 comm=node state=S rss_kb=58144 cpu=0.00
+pid=170 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=199 ppid=170 comm=node state=S rss_kb=184024 cpu=0.00
+pid=404 ppid=199 comm=node state=S rss_kb=80608 cpu=0.00
+pid=11890 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=11907 ppid=11890 comm=node state=S rss_kb=56284 cpu=0.00
+pid=21059 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.08
+pid=21769 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=21789 ppid=21769 comm=node state=S rss_kb=56944 cpu=0.00
+pid=21913 ppid=43373 comm=bash state=S rss_kb=3456 cpu=0.00
+pid=21919 ppid=21913 comm=bash state=S rss_kb=3328 cpu=0.00
+pid=21934 ppid=21919 comm=busybox state=R rss_kb=2432 cpu=0.08
+pid=21986 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=22007 ppid=21059 comm=sleep state=S rss_kb=1408 cpu=0.00
+pid=22013 ppid=21986 comm=sleep state=S rss_kb=1536 cpu=0.00
+pid=22590 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=22642 ppid=22590 comm=node state=S rss_kb=55860 cpu=0.00
+pid=28688 ppid=0 comm=node state=S rss_kb=58516 cpu=0.00
+pid=28707 ppid=0 comm=node state=S rss_kb=63240 cpu=0.00
+pid=28791 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=28843 ppid=28791 comm=node state=S rss_kb=56080 cpu=0.00
+pid=33975 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=34017 ppid=33975 comm=node state=S rss_kb=56012 cpu=0.00
+pid=40378 ppid=63808 comm=node state=S rss_kb=84660 cpu=0.00
+pid=40642 ppid=63808 comm=node state=S rss_kb=68084 cpu=0.00
+pid=43141 ppid=0 comm=sh state=S rss_kb=1792 cpu=0.00
+pid=43190 ppid=43141 comm=node state=S rss_kb=56356 cpu=0.00
+pid=43373 ppid=404 comm=bash state=S rss_kb=3968 cpu=0.00
+pid=63314 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63576 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=63681 ppid=63576 comm=node state=S rss_kb=50556 cpu=0.00
+pid=63764 ppid=199 comm=node state=S rss_kb=75956 cpu=0.00
+pid=63808 ppid=199 comm=node state=S rss_kb=1134772 cpu=0.08
+pid=63936 ppid=63808 comm=codex state=S rss_kb=142160 cpu=0.00
+pid=76464 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=76479 ppid=76464 comm=node state=S rss_kb=58232 cpu=0.00
+pid=77726 ppid=0 comm=sh state=S rss_kb=1664 cpu=0.00
+pid=77745 ppid=77726 comm=node state=S rss_kb=59476 cpu=0.00
+pid=82322 ppid=63808 comm=cpptools state=S rss_kb=59076 cpu=0.00
+
+## timing
+SKIP: /usr/bin/time not found
