@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BusyBox-Diag | 官方使用說明書</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gray: {
+                            850: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617'
+                        },
+                        primary: '#3b82f6',
+                        accent: '#10b981',
+                        warning: '#f59e0b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 自訂滾動條 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 font-sans antialiased leading-relaxed">
+
+    <!-- Top Navigation Bar -->
+    <nav class="sticky top-0 z-50 bg-gray-950/80 backdrop-blur border-b border-gray-800 px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <span class="text-xl font-extrabold text-white tracking-tight">
+                    BusyBox-<span class="text-primary">Diag</span> <span class="text-sm font-normal text-gray-400 ml-2">使用說明書</span>
+                </span>
+            </div>
+            <div>
+                <a href="index.html" class="inline-flex items-center gap-2 text-sm bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold py-2 px-4 rounded-lg border border-gray-700 transition">
+                    ← 返回首頁
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container mx-auto px-6 py-12 flex flex-col lg:flex-row gap-10">
+        
+        <!-- Left Sidebar Navigation (Table of Contents) -->
+        <aside class="lg:w-1/4 shrink-0">
+            <div class="sticky top-24 bg-gray-850 p-6 rounded-xl border border-gray-800 hidden lg:block">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4">目錄導覽</h3>
+                <ul class="space-y-2 text-sm">
+                    <li><a href="#sec-1" class="block text-gray-400 hover:text-primary transition py-1">1. 專案總覽</a></li>
+                    <li><a href="#sec-2" class="block text-gray-400 hover:text-primary transition py-1">2. 開始前所需環境</a></li>
+                    <li><a href="#sec-3" class="block text-gray-400 hover:text-primary transition py-1">3. 下載 BusyBox 原始碼</a></li>
+                    <li><a href="#sec-4" class="block text-gray-400 hover:text-primary transition py-1">4. 取得 BusyBox-Diag Repo</a></li>
+                    <li><a href="#sec-5" class="block text-gray-400 hover:text-primary transition py-1">5. 一鍵 Bootstrap 安裝</a></li>
+                    <li><a href="#sec-6" class="block text-gray-400 hover:text-primary transition py-1">6. 安裝後驗證</a></li>
+                    <li><a href="#sec-7" class="block text-gray-400 hover:text-primary transition py-1">7. 基本使用</a></li>
+                    <li><a href="#sec-8" class="block text-gray-400 hover:text-primary transition py-1">8. JSON 驗證</a></li>
+                    <li><a href="#sec-9" class="block text-gray-400 hover:text-primary transition py-1">9. Pipeline 範例</a></li>
+                    <li><a href="#sec-10" class="block text-gray-400 hover:text-primary transition py-1">10. 手動流程</a></li>
+                    <li><a href="#sec-11" class="block text-gray-400 hover:text-primary transition py-1">11. Benchmark / 效率紀錄</a></li>
+                    <li><a href="#sec-12" class="block text-gray-400 hover:text-primary transition py-1">12. Release / Freeze 證據檔</a></li>
+                    <li><a href="#sec-13" class="block text-gray-400 hover:text-primary transition py-1">13. 移除安裝</a></li>
+                    <li><a href="#sec-14" class="block text-gray-400 hover:text-primary transition py-1">14. 疑難排解</a></li>
+                    <li><a href="#sec-15" class="block text-gray-400 hover:text-primary transition py-1">15. 各種 PASS 代表什麼</a></li>
+                    <li><a href="#sec-16" class="block text-gray-400 hover:text-primary transition py-1">16. 設計摘要</a></li>
+                    <li><a href="#sec-17" class="block text-gray-400 hover:text-primary transition py-1">17. 已知限制</a></li>
+                    <li><a href="#sec-18" class="block text-gray-400 hover:text-primary transition py-1">18. 快速指令表</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Right Content Area -->
+        <main class="lg:w-3/4 space-y-12 bg-gray-850 p-8 lg:p-12 rounded-xl border border-gray-800">
+            
+            <!-- 1. 專案總覽 -->
+            <section id="sec-1" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">01.</span> 專案總覽
+                </h2>
+                <p class="text-gray-300">
+                    BusyBox-Diag 是一套深度整合進 BusyBox 的輕量 Linux 系統診斷工具組。本專案透過新增三個自訂的 BusyBox applet，並在底層共用同一個 <code class="text-primary font-mono">libdiag</code> 量測層，提供高內聚、低開銷的系統數據監控能力。
+                </p>
+                <div class="bg-blue-500/10 border-l-4 border-primary p-4 rounded-r-lg my-4 text-sm text-gray-300">
+                    <strong class="text-white block mb-1">💡 重要架構合約提示：</strong>
+                    最終交付目標<strong>並非三個彼此獨立的 standalone 執行檔</strong>，而是標準的 BusyBox applet 整合。這意味著所有工具最後都會被編譯進同一個 <code class="text-primary font-mono">busybox</code> binary 中，並完全透過 BusyBox 的 <code class="font-mono">argv[0]</code> symlink dispatch 機制來分流執行。
+                </div>
+                <ul class="list-disc list-inside space-y-2 text-sm mt-4 text-gray-300">
+                    <li><span class="text-white font-semibold">diagfs</span>：檔案系統元資料監控（空間、Inode、Extent）</li>
+                    <li><span class="text-white font-semibold">diagnet</span>：被動式核心 Socket 狀態觀察器（TCP/UDP 連線分佈）</li>
+                    <li><span class="text-white font-semibold">ptop</span>：基於 Snapshot-Delta 架構的輕量行程資源監控器</li>
+                </ul>
+            </section>
+
+            <!-- 2. 開始前所需環境 -->
+            <section id="sec-2" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">02.</span> 開始前所需環境
+                </h2>
+                <p class="text-gray-300 mb-4">系統編譯與驗證需要滿足以下基本 Linux 環境要求：</p>
+                <div class="bg-gray-900 p-4 rounded-lg border border-gray-800 text-sm space-y-2">
+                    <p>🔹 <span class="text-white font-semibold">作業系統</span>：Linux 實體主機、虛擬機或具備特權的 Linux 容器環境。</p>
+                    <p>🔹 <span class="text-white font-semibold">工具鏈</span>：GNU Toolchain (<code class="font-mono">gcc</code>, <code class="font-mono">make</code>) 與基礎建構組件。</p>
+                    <p>🔹 <span class="text-white font-semibold">依賴組件</span>：<code class="font-mono">python3</code>（用於自動化 JSON 結構與語法驗證）、<code class="font-mono">wget</code>、<code class="font-mono">tar</code>。</p>
+                </div>
+                <div class="mt-4">
+                    <p class="text-sm text-gray-400 mb-2">Ubuntu 22.04 / 24.04 環境參考安裝指令：</p>
+                    <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>sudo apt update
+sudo apt install -y build-essential make gcc libncurses-dev bison flex python3 wget tar</code></pre>
+                </div>
+            </section>
+
+            <!-- 3. 下載 BusyBox 原始碼 -->
+            <section id="sec-3" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">03.</span> 下載 BusyBox 原始碼
+                </h2>
+                <p class="text-gray-300 mb-4">專案指定搭配穩定版 <code class="text-primary font-mono">busybox-1.36.1</code>。請依序建立工作區並解壓縮官方原始碼：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>mkdir -p ~/workspace
+cd ~/workspace
+
+wget https://busybox.net/downloads/busybox-1.36.1.tar.bz2
+tar xf busybox-1.36.1.tar.bz2</code></pre>
+                <div class="mt-4 text-sm text-gray-300">
+                    <p class="mb-2">執行 <code class="font-mono">ls ~/workspace/busybox-1.36.1</code> 進行結構驗證，確認包含以下 BusyBox 標準核心目錄：</p>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 font-mono text-xs bg-gray-900 p-3 rounded border border-gray-800">
+                        <div>📁 applets/ (註冊路由器)</div>
+                        <div>📁 include/ (共用標頭檔)</div>
+                        <div>📁 miscutils/ (整合目標區)</div>
+                        <div>📁 libbb/ (內部共用庫)</div>
+                        <div>📄 Makefile</div>
+                        <div>📄 Config.in (Kconfig入口)</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. 取得 BusyBox-Diag Repo -->
+            <section id="sec-4" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">04.</span> 取得 BusyBox-Diag 儲存庫
+                </h2>
+                <p class="text-gray-300 mb-4">將本專題的開源儲存庫複製至指定的工作目錄中：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>cd ~/workspace
+git clone https://github.com/aloea4/BusyBox-Diag final_project</code></pre>
+                <p class="text-sm text-gray-400 mt-2">請確保您的目錄拓撲結構嚴格維持如下排列：</p>
+                <pre class="bg-gray-950 p-3 rounded font-mono text-xs text-gray-400 mt-1"><code>~/workspace/
+├── busybox-1.36.1/   # 上游 BusyBox 原始碼樹
+└── final_project/     # 本專題核心程式碼與腳本庫</code></pre>
+            </section>
+
+            <!-- 5. 一鍵 Bootstrap 安裝（建議主路徑） -->
+            <section id="sec-5" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">05.</span> 一鍵 Bootstrap 自動建構
+                </h2>
+                <p class="text-gray-300 mb-4">這是專案推薦的主線建構路徑，腳本會全自動驅動完整生命週期：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>cd ~/workspace/final_project
+scripts/bootstrap_busybox_diag.sh ~/workspace/busybox-1.36.1</code></pre>
+                <p class="text-sm text-gray-400 mt-2">如果您不希望建構腳本自動修改環境變數路徑（<code class="font-mono">~/.bashrc</code>），可加入防護旗標：</p>
+                <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-500"><code>scripts/bootstrap_busybox_diag.sh ~/workspace/busybox-1.36.1 --no-activate</code></pre>
+                <div class="mt-4 bg-gray-900 p-4 rounded-lg border border-gray-800 text-sm">
+                    <h4 class="font-bold text-white mb-2">⚙️ Bootstrap 自動化流程內幕：</h4>
+                    <ol class="list-decimal list-inside space-y-1 text-gray-300">
+                        <li>套用 BusyBox-Diag 原始碼圖層 (Overlay) 至上游原始碼樹。</li>
+                        <li>同步核心運作輔助腳本至 BusyBox Tree 內。</li>
+                        <li>執行靜態組態配置並編譯整合型巨型二進位檔。</li>
+                        <li>自動化觸發全套單元測試與功能性驗證矩陣。</li>
+                        <li>將解耦的 applet 命令投放至安全安裝路徑 <code class="font-mono">/usr/local/busybox-diag/bin</code>。</li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- 6. 安裝後驗證 -->
+            <section id="sec-6" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">06.</span> 安裝後生命週期驗證
+                </h2>
+                <p class="text-gray-300 mb-4">若於上一步編譯時指定了 <code class="font-mono">--no-activate</code>，請先於當前 Shell 內手動導入 PATH 變數：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>export PATH=/usr/local/busybox-diag/bin:$PATH</code></pre>
+                <p class="text-sm text-gray-300 mt-4 mb-2">依序檢查二進位分流路徑與核心幫助面板：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>which diagfs && which diagnet && which ptop
+
+diagfs --help
+diagnet --help
+ptop --help</code></pre>
+                <div class="bg-emerald-500/10 border-l-4 border-accent p-4 rounded-r-lg my-4 text-sm text-gray-300">
+                    <span class="text-white font-bold block mb-1">✅ 預期正確輸出：</span>
+                    指令回報應精確指向 <code class="font-mono">/usr/local/busybox-diag/bin/[工具名]</code>，且各工具的標準幫助面板能完美渲染輸出，未出現符號缺失 (Symbol Missing) 錯誤。
+                </div>
+            </section>
+
+            <!-- 7. 基本使用 -->
+            <section id="sec-7" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">07.</span> 基本使用與指令規範
+                </h2>
+                <p class="text-gray-300 mb-6">所有自研工具原生遵循高度一致的 CLI 行為。可透過 <code class="font-mono">--output [table|raw|json]</code> 參數切換數據流表現形態。</p>
+                
+                <!-- 7.1 diagfs -->
+                <div class="mb-6 bg-gray-900 p-6 rounded-lg border border-gray-800">
+                    <h3 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-primary"></span> 7.1 diagfs 檔案系統工具
+                    </h3>
+                    <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3"><code>diagfs --output table /
+diagfs --output json /</code></pre>
+                    <p class="text-sm text-gray-400 mb-2">📊 核心回報指標含義：</p>
+                    <div class="grid grid-cols-2 gap-4 text-xs bg-gray-850 p-3 rounded">
+                        <div><strong class="text-white">Path:</strong> 觀測掛載目標路徑</div>
+                        <div><strong class="text-white">Filesystem type:</strong> 底層檔案系統型態</div>
+                        <div><strong class="text-white">Space usage:</strong> 區塊層實際空間水位</div>
+                        <div><strong class="text-white">Inode usage:</strong> Metadata 節點耗盡水位</div>
+                    </div>
+                </div>
+
+                <!-- 7.2 diagnet -->
+                <div class="mb-6 bg-gray-900 p-6 rounded-lg border border-gray-800">
+                    <h3 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-accent"></span> 7.2 diagnet 網路狀態監控
+                    </h3>
+                    <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3"><code>diagnet --output table
+diagnet --output raw</code></pre>
+                    <p class="text-sm text-gray-300">
+                        作為一個嚴格的 <span class="text-white font-semibold">被動式核心狀態觀察器</span>，它直接解碼 Linux 核心核心匯出的虛擬文字。運作期間<strong>絕不建立 Socket、不主動探測、亦不抓取實體封包</strong>，對線上運行業務具備零侵入性。
+                    </p>
+                </div>
+
+                <!-- 7.3 ptop -->
+                <div class="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                    <h3 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span> 7.3 ptop 行程資源監控
+                    </h3>
+                    <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3"><code>ptop --output table -1 -n 1
+ptop --output json -1 -n 5 -t 10</code></pre>
+                    <p class="text-sm text-gray-400 mb-2">⚙️ 核心調校參數：</p>
+                    <div class="grid grid-cols-2 gap-2 text-xs text-gray-300">
+                        <div>• <code class="font-mono text-primary">-1</code>: 啟動單次快照批次模態 (One-shot)</div>
+                        <div>• <code class="font-mono text-primary">-n N</code>: 設定樣本數據更新上限次數</div>
+                        <div>• <code class="font-mono text-primary">-t N</code>: 限制僅渲染資源消耗最高的前 N 家行程</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 8. JSON 驗證 -->
+            <section id="sec-8" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">02.</span> 結構化 JSON 合法性校驗
+                </h2>
+                <p class="text-gray-300 mb-4">為確保各 applet 工具輸出的 JSON 數據流可完美相容於上游自動化 Dashboard 體系，可透過 Python 原生解析模組進行語法合法性嚴格校驗：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>diagfs --output json / | python3 -m json.tool
+diagnet --output json | python3 -m json.tool
+ptop --output json -1 -n 1 | python3 -m json.tool</code></pre>
+                <p class="text-sm text-gray-400 mt-2">💡 若語法完全合法，終端機將輸出美化排版後的結構化 JSON，若解析出錯則會直接噴出 Parser 報錯訊息。</p>
+            </section>
+
+            <!-- 9. Pipeline 範例 -->
+            <section id="sec-9" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">09.</span> Shell Pipeline 高級自動化串接
+                </h2>
+                <p class="text-gray-300 mb-4">藉由內建的 <code class="font-mono">raw</code> 模態，數據流能以高度規整的單行純文字格式輸出，極度適合使用 UNIX 古典工具進行管線過濾處理：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code># 自動提取掛載點特定指標
+diagfs --output raw / | awk '{print $1, $2, $3}'
+
+# 擷取連線分佈前 20 條記錄
+diagnet --output raw | head -20
+
+# 採集系統進程快照精簡摘要
+ptop --output raw -1 -n 10 | head -20</code></pre>
+            </section>
+
+            <!-- 10. 手動流程 -->
+            <section id="sec-10" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">10.</span> 進階：手動逐步構建生命週期
+                </h2>
+                <p class="text-gray-300 mb-4">如果您需要更細緻地控制構建工序，可以跳過 Bootstrap，依次手動執行各分步核心控制腳本：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>cd ~/workspace/final_project
+scripts/apply_overlay.sh ~/workspace/busybox-1.36.1
+
+cd ~/workspace/busybox-1.36.1
+scripts/build_busybox_diag.sh
+scripts/verify_busybox_diag.sh
+scripts/install_busybox_diag_local.sh --activate</code></pre>
+            </section>
+
+            <!-- 11. Benchmark / 效率紀錄 -->
+            <section id="sec-11" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">11.</span> 基準效能自動化評測
+                </h2>
+                <p class="text-gray-300 mb-4">本腳本專門用於就地量測自研組件與 GNU 官方工具鏈的開銷對照，生成正式的專案成效證據檔：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>cd ~/workspace/final_project
+scripts/benchmark_busybox_diag.sh ~/workspace/busybox-1.36.1</code></pre>
+                <p class="text-sm text-gray-400 mt-2">執行完畢後將於本地自動產出以下核心對照分析報告：</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono mt-2 text-gray-300">
+                    <div class="bg-gray-900 p-3 rounded border border-gray-700">📄 benchmarks/binary_size.txt<br><span class="text-gray-500">記錄靜態與常駐記憶體體積</span></div>
+                    <div class="bg-gray-900 p-3 rounded border border-gray-700">📄 benchmarks/verification_summary.txt<br><span class="text-gray-500">保存全面測試矩陣回報</span></div>
+                    <div class="bg-gray-900 p-3 rounded border border-gray-700">📄 benchmarks/manual_test_summary.txt<br><span class="text-gray-500">記錄人工邊界情境抽樣指標</span></div>
+                </div>
+            </section>
+
+            <!-- 12. Release / Freeze 證據檔 -->
+            <section id="sec-12" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">12.</span> 專案成果 Freeze 證據歸檔
+                </h2>
+                <p class="text-gray-300">
+                    專案正式凍結交付前，所有靜態建構日誌（Build Logs）、驗證矩陣報告、Demo 情境輸出腳本、以及 Kconfig 核心快照，皆會被封裝歸檔至專案目錄下的 <code class="text-primary font-mono">release/</code> 與 <code class="text-primary font-mono">release/freeze/</code> 目錄中，作為評分與規格合約檢驗的最終客觀依據。
+                </p>
+            </section>
+
+            <!-- 13. 移除安裝 -->
+            <section id="sec-13" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">13.</span> 系統全乾淨移除規範
+                </h2>
+                <p class="text-gray-300 mb-4">若需將本專題工具從您的 Linux 系統中完全撤銷，請執行以下清理工序：</p>
+                <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code># 1. 抹除實體二進位與軟連結目錄
+sudo rm -rf /usr/local/busybox-diag
+
+# 2. 編輯您的 ~/.bashrc 移除下方環境變數設定
+# export PATH=/usr/local/busybox-diag/bin:$PATH</code></pre>
+            </section>
+
+            <!-- 14. 疑難排解 -->
+            <section id="sec-14" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">14.</span> 疑難排解 (Troubleshooting)
+                </h2>
+                <div class="space-y-4">
+                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                        <h4 class="text-white font-bold mb-1 text-sm flex items-center gap-2">
+                            <span class="text-warning">💥 故障 1:</span> <code class="font-mono text-red-400">diagfs: command not found</code>
+                        </h4>
+                        <p class="text-xs text-gray-400">原因：當前終端機對話尚未導入二進位安裝路徑。</p>
+                        <p class="text-xs text-accent mt-1">解法：手動執行 <code class="font-mono text-gray-300 bg-gray-950 px-1 rounded">export PATH=/usr/local/busybox-diag/bin:$PATH</code>。</p>
+                    </div>
+
+                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                        <h4 class="text-white font-bold mb-1 text-sm flex items-center gap-2">
+                            <span class="text-warning">💥 故障 2:</span> <code class="font-mono text-yellow-400">Filesystem type: unknown</code>
+                        </h4>
+                        <p class="text-xs text-gray-400">原因：容器虛擬化環境（如 Docker OverlayFS）特殊的掛載型態未包含在輕量化靜態映射表內。</p>
+                        <p class="text-xs text-accent mt-1">解法：此為正常已知限制，底層區塊層空間與 Inode 指標依然精確有效，不影響業務診斷。</p>
+                    </div>
+
+                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                        <h4 class="text-white font-bold mb-1 text-sm flex items-center gap-2">
+                            <span class="text-warning">💥 故障 3:</span> 效能測試指標中出現許多 <code class="font-mono text-gray-400">SKIP</code>
+                        </h4>
+                        <p class="text-xs text-gray-400">原因：測試執行環境屬於精簡版最小化容器，系統內缺乏 <code class="font-mono">ss</code> 或 <code class="font-mono">/usr/bin/time</code> 等原生對照組基準工具。</p>
+                        <p class="text-xs text-accent mt-1">解法：這代表對照組被跳過，自製工具本體功能依然完全合格，於主機補齊套件即可。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 15. 各種 PASS 代表什麼 -->
+            <section id="sec-15" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">15.</span> 自動化測試 PASS 指標含義
+                </h2>
+                <div class="overflow-x-auto rounded-lg border border-gray-800 text-xs">
+                    <table class="w-full text-left text-gray-300">
+                        <thead class="bg-gray-900 text-gray-100 font-semibold uppercase">
+                            <tr>
+                                <th class="px-4 py-3">PASS 標籤</th>
+                                <th class="px-4 py-3">核心考核面向與通過定義</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800 bg-gray-950/30">
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-accent">Build PASS</td>
+                                <td class="px-4 py-3 text-gray-400">原始碼 Overlay 成功合流，上游 BusyBox 核心編譯完全無符號阻斷錯誤。</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-accent">Verify PASS</td>
+                                <td class="px-4 py-3 text-gray-400">各工具 CLI 選項解析、矩陣回報健全度、JSON 基線合法性完全合規。</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-accent">Applet registration PASS</td>
+                                <td class="px-4 py-3 text-gray-400">三個自研命名空間成功註冊進 BusyBox 頂層全域 Applet 靜態路由表。</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-mono text-accent">Symlink dispatch PASS</td>
+                                <td class="px-4 py-3 text-gray-400">透過建立的軟連結獨立呼叫指令時，BusyBox 路由能精確分流至對應的 main()。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 16. 設計摘要 -->
+            <section id="sec-16" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">16.</span> 資料流設計模型摘要
+                </h2>
+                <div class="bg-gray-950 p-6 rounded-lg font-mono text-xs text-blue-400 border border-gray-800 space-y-2">
+                    <p class="text-gray-500">// 數據從核心層到展示層的單向低開銷流動線路</p>
+                    <p class="text-white">Kernel Interfaces (/proc virtual fs, statfs system calls)</p>
+                    <p class="text-gray-400"> └──&gt; [libdiag] Shared Measurement Layer (容錯、邊界防禦與結構化抽象)</p>
+                    <p class="text-gray-400">     └──&gt; [Applet Analysis Layer] 執行時間差分、Ceiling 運算、狀態映射</p>
+                    <p class="text-gray-400">         └──&gt; [Presentation Formatter] isatty() 偵測、動態控制字元自動開閉</p>
+                    <p class="text-white">             └──&gt; BusyBox Applet Dispatcher (單一靜態連結 Binary 交付)</p>
+                </div>
+            </section>
+
+            <!-- 17. 已知限制 -->
+            <section id="sec-17" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">17.</span> 專案已知限制 (Known Limitations)
+                </h2>
+                <ul class="list-disc list-inside space-y-2 text-sm text-gray-400">
+                    <li>⚠️ 當前實作為工程驗證原型，尚未完全清除 BusyBox 核心模組原有的上游編譯 Warning。</li>
+                    <li>⚠️ <code class="font-mono text-gray-300">diagnet</code> 當前聚焦於原生 IPv4 虛擬文字解碼，尚未擴充支援 <code class="font-mono">/proc/net/tcp6</code>。</li>
+                    <li>⚠️ <code class="font-mono text-gray-300">ptop</code> 採用極簡批次時間快照架構，本質上非完整的全功能動態互動式 <code class="font-mono">ncurses</code> 終端機 UI。</li>
+                    <li>⚠️ 部分特殊或極新檔案系統類型可能在顯示上退化為 <code class="font-mono">unknown</code>，但不影響數據採集準確度。</li>
+                </ul>
+            </section>
+
+            <!-- 18. 快速指令表 -->
+            <section id="sec-18" class="scroll-mt-24">
+                <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
+                    <span class="text-primary">18.</span> 終端機常用快速指令速查表
+                </h2>
+                <div class="bg-gray-950 p-4 rounded-lg font-mono text-xs text-emerald-400 space-y-2 border border-gray-800">
+                    <p class="text-gray-500"># 1. 驅動自動化 Bootstrap 安裝流程</p>
+                    <p class="text-white">scripts/bootstrap_busybox_diag.sh ~/workspace/busybox-1.36.1</p>
+                    
+                    <p class="text-gray-500 mt-3"># 2. 檔案系統多模態採樣</p>
+                    <p class="text-white">diagfs --output table / && diagfs --output json /</p>
+                    
+                    <p class="text-gray-500 mt-3"># 3. 網路狀態無污染管線過濾</p>
+                    <p class="text-white">diagnet --output raw | head -n 10</p>
+                    
+                    <p class="text-gray-500 mt-3"># 4. 行程資源 One-shot 摘要擷取</p>
+                    <p class="text-white">ptop --output table -1 -n 1</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-950 border-t border-gray-800 text-center py-8 text-xs text-gray-500">
+        <p>國立彰化師範大學資訊工程學系 系統底層專題成果文件</p>
+        <p class="mt-1">© 2026 BusyBox-Diag 開源團隊. All Rights Reserved.</p>
+    </footer>
+
+</body>
+</html>
