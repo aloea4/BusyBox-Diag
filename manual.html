@@ -230,7 +230,7 @@ diagfs --output json /</code></pre>
                     <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3"><code>diagnet --output table
 diagnet --output raw</code></pre>
                     <p class="text-sm text-gray-300">
-                        作為一個嚴格的 <span class="text-white font-semibold">被動式核心狀態觀察器</span>，它直接解碼 Linux 核心核心匯出的虛擬文字。運作期間<strong>絕不建立 Socket、不主動探測、亦不抓取實體封包</strong>，對線上運行業務具備零侵入性。
+                        作為一個嚴格的 <span class="text-white font-semibold">被動式核心狀態觀察器</span>，它直接解碼 Linux 核心匯出的虛擬文字。運作期間<strong>絕不建立 Socket、不主動探測、亦不抓取實體封包</strong>，對線上運行業務具備零侵入性。
                     </p>
                 </div>
 
@@ -253,7 +253,7 @@ ptop --output json -1 -n 5 -t 10</code></pre>
             <!-- 8. JSON 驗證 -->
             <section id="sec-8" class="scroll-mt-24">
                 <h2 class="text-2xl font-bold text-white mb-4 pb-2 border-b border-gray-700 flex items-center gap-2">
-                    <span class="text-primary">02.</span> 結構化 JSON 合法性校驗
+                    <span class="text-primary">08.</span> 結構化 JSON 合法性校驗
                 </h2>
                 <p class="text-gray-300 mb-4">為確保各 applet 工具輸出的 JSON 數據流可完美相容於上游自動化 Dashboard 體系，可透過 Python 原生解析模組進行語法合法性嚴格校驗：</p>
                 <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>diagfs --output json / | python3 -m json.tool
