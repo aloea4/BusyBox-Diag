@@ -1,165 +1,797 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="scroll-smooth">
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BusyBox-Diag | 輕量整合式 Linux 診斷工具</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        gray: { 850: '#1f2937', 900: '#111827' },
-                        primary: '#3b82f6',
-                        accent: '#10b981'
-                    }
-                }
-            }
-        }
-    </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BusyBox-Diag | 輕量整合式 Linux 診斷工具</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Tailwind Slate & Blue 色系 */
+      --bg:        #0f172a;
+      --surf:      #1e293b;
+      --surf2:     #334155;
+      --accent:    #3b82f6; 
+      --accent-d:  rgba(59, 130, 246, 0.12);
+      --text:      #f8fafc;
+      --muted:     #94a3b8;
+      --border:    #334155;
+      --warn:      #f59e0b;
+      --success:   #10b981;
+      --mono:      'JetBrains Mono', monospace;
+      --sans:      'Noto Sans TC', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 54px;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-family: var(--mono); font-weight: 700; font-size: .95rem;
+      color: var(--accent); text-decoration: none; letter-spacing: .04em;
+    }
+    .nav-logo span { color: var(--muted); font-weight: 400; }
+    .nav-links { display: flex; gap: 1.75rem; list-style: none; }
+    .nav-links a {
+      font-family: var(--mono); font-size: .75rem;
+      color: var(--muted); text-decoration: none;
+      letter-spacing: .06em; transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--accent); }
+
+    /* ── HERO ── */
+    #hero {
+      /* 取消強制佔滿全螢幕，改用 padding 調整合適高度 */
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 5rem 1.5rem 4rem;
+      text-align: center; position: relative; overflow: hidden;
+    }
+    #hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: .18;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 30%, transparent 100%);
+    }
+
+    .course-tag {
+      font-family: var(--mono); font-size: .7rem;
+      color: var(--accent); letter-spacing: .15em; text-transform: uppercase;
+      margin-bottom: 1.25rem;
+      opacity: 0; animation: fadeUp .5s .1s forwards;
+    }
+
+    /* 主終端機 (Mac 風格) - 縮減內邊距與高度 */
+    .terminal {
+      width: min(640px,100%); background: var(--surf);
+      border: 1px solid var(--border); border-radius: 8px;
+      overflow: hidden; margin-bottom: 2rem;
+      box-shadow: 0 16px 40px rgba(0,0,0,.4), 0 0 0 1px rgba(59,130,246,.1);
+      opacity: 0; animation: fadeUp .5s .25s forwards;
+    }
+    .term-bar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 12px; background: var(--surf2);
+      border-bottom: 1px solid var(--border);
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dr { background:#FF5F57; } .dy { background:#FFBD2E; } .dg { background:#28C940; }
+    .term-title {
+      font-family: var(--mono); font-size: .65rem; color: var(--muted);
+      margin: 0 auto; transform: translateX(-18px);
+    }
+    .term-body {
+      padding: 0.8rem 1.2rem; font-family: var(--mono);
+      font-size: .75rem; line-height: 1.6; min-height: 100px; text-align: left;
+    }
+    .tp { color: var(--success); }
+    .tc { color: var(--text); }
+    .tf { color: var(--accent); }
+    .to { color: var(--muted); display: block; white-space: pre; }
+    .cursor {
+      display: inline-block; width: 6px; height: 1em;
+      background: var(--text); vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    h1.hero-h {
+      font-family: var(--mono); font-size: clamp(1.6rem,3.5vw,2.6rem);
+      font-weight: 700; letter-spacing: -.02em; line-height: 1.2;
+      margin-bottom: 1.1rem; max-width: 660px;
+      opacity: 0; animation: fadeUp .5s .45s forwards;
+    }
+    h1.hero-h em { font-style: normal; color: var(--accent); }
+
+    .hero-sub {
+      font-size: .95rem; color: var(--muted);
+      max-width: 500px; margin-bottom: 1.8rem;
+      opacity: 0; animation: fadeUp .5s .6s forwards;
+    }
+
+    .badges {
+      display: flex; flex-wrap: wrap; gap: .5rem;
+      justify-content: center; margin-bottom: 2rem;
+      opacity: 0; animation: fadeUp .5s .7s forwards;
+    }
+    .badge {
+      font-family: var(--mono); font-size: .65rem;
+      padding: 2px 8px; border-radius: 4px;
+      border: 1px solid var(--border); color: var(--muted); background: var(--surf);
+    }
+
+    .cta { display: flex; gap: .9rem; flex-wrap: wrap; justify-content: center;
+      opacity: 0; animation: fadeUp .5s .8s forwards; }
+    .btn-p {
+      display: inline-flex; align-items: center; gap: .45rem;
+      padding: .6rem 1.4rem; background: var(--accent); color: #fff;
+      font-family: var(--mono); font-weight: 700; font-size: .8rem;
+      border-radius: 6px; text-decoration: none; transition: opacity .2s, transform .2s;
+    }
+    .btn-p:hover { opacity: .85; transform: translateY(-1px); }
+    .btn-s {
+      display: inline-flex; align-items: center; gap: .45rem;
+      padding: .6rem 1.4rem; background: transparent; color: var(--text);
+      font-family: var(--mono); font-size: .8rem;
+      border-radius: 6px; border: 1px solid var(--border);
+      text-decoration: none; transition: border-color .2s, color .2s, transform .2s;
+    }
+    .btn-s:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(14px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* ── SECTIONS ── */
+    section { padding: 4.5rem 1.5rem; }
+    .inner { max-width: 1060px; margin: 0 auto; }
+    .sec-label {
+      font-family: var(--mono); font-size: .68rem;
+      color: var(--accent); letter-spacing: .15em; text-transform: uppercase;
+      margin-bottom: .5rem;
+    }
+    .sec-title {
+      font-family: var(--mono); font-size: clamp(1.3rem,2.8vw,2rem);
+      font-weight: 700; margin-bottom: 2.75rem; letter-spacing: -.01em;
+    }
+
+    /* ── MOTIVATION ── */
+    #motivation { background: var(--surf); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .motiv-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 1.25rem; }
+    .motiv-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 9px;
+      padding: 1.5rem; position: relative; overflow: hidden;
+    }
+    .motiv-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent); opacity: .5;
+    }
+    .motiv-num { font-family: var(--mono); font-size: .65rem; color: var(--accent); margin-bottom: .6rem; }
+    .motiv-card h3 { font-size: .95rem; font-weight: 700; margin-bottom: .5rem; }
+    .motiv-card p { font-size: .82rem; color: var(--muted); line-height: 1.6; }
+
+    /* comparison table */
+    .cmp-wrap { overflow-x: auto; margin-top: 2rem; }
+    .cmp-table { width: 100%; border-collapse: collapse; font-size: .82rem; font-family: var(--mono); }
+    .cmp-table th {
+      padding: .7rem 1rem; text-align: left; color: var(--muted); font-size: .68rem;
+      letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--border);
+    }
+    .cmp-table td { padding: .85rem 1rem; border-bottom: 1px solid rgba(51, 65, 85, .6); }
+    .cmp-table tr:last-child td { border-bottom: none; }
+    .col-ours { color: var(--accent); font-weight: 700; }
+    .tick { color: var(--success); }
+    .cross { color: var(--muted); }
+    .partial { color: var(--warn); }
+
+    /* ── ARCHITECTURE ── */
+    .arch-layers {
+      display: flex; flex-direction: column; gap: 0;
+      border: 1px solid var(--border); border-radius: 10px;
+      overflow: hidden; font-family: var(--mono);
+    }
+    .arch-layer {
+      display: grid; grid-template-columns: 160px 1fr;
+      border-bottom: 1px solid var(--border);
+    }
+    .arch-layer:last-child { border-bottom: none; }
+    .arch-layer-label {
+      padding: 1.1rem 1.25rem; background: var(--surf2);
+      border-right: 1px solid var(--border); font-size: .72rem; color: var(--accent);
+      letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center;
+    }
+    .arch-layer-content { padding: 1.1rem 1.4rem; background: var(--surf); font-size: .8rem; }
+    .arch-layer-content strong { color: var(--text); display: block; margin-bottom: .3rem; }
+    .arch-layer-content p { color: var(--muted); font-size: .75rem; line-height: 1.55; }
+    .arch-items { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: .5rem; }
+    .arch-item {
+      padding: 3px 10px; border-radius: 4px;
+      background: var(--bg); border: 1px solid var(--border);
+      font-size: .72rem; color: var(--muted);
+    }
+
+    /* ── TOOLS ── */
+    #tools { background: var(--surf); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .tools-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(300px,1fr)); gap: 1.25rem; }
+    .tool-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; transition: border-color .2s;
+    }
+    .tool-card:hover { border-color: var(--accent); }
+    
+    /* 純 CSS 工具輸出模擬區塊 */
+    .tool-mock-term {
+      width: 100%; background: #020617; border-bottom: 1px solid var(--border);
+    }
+    .mock-term-header {
+      display: flex; gap: 6px; padding: 6px 12px; background: #0f172a; border-bottom: 1px solid var(--border);
+    }
+    .mock-term-body {
+      padding: 1rem; font-family: var(--mono); font-size: 0.65rem; color: var(--muted);
+      line-height: 1.5; text-align: left; white-space: pre; overflow-x: auto;
+    }
+    .mt-blue { color: var(--accent); }
+    .mt-green { color: var(--success); }
+    .mt-warn { color: var(--warn); }
+    .mt-prompt { color: var(--success); margin-right: 4px; }
+
+    .tool-body { padding: 1.2rem 1.4rem; }
+    .tool-name { font-family: var(--mono); font-size: 1.05rem; font-weight: 700; color: var(--accent); margin-bottom: .2rem; }
+    .tool-tagline { font-size: .85rem; font-weight: 600; margin-bottom: .8rem; }
+    .tool-ul { list-style: none; display: flex; flex-direction: column; gap: .45rem; }
+    .tool-ul li { font-size: .75rem; color: var(--muted); padding-left: 1rem; position: relative; line-height: 1.5; }
+    .tool-ul li::before { content: '▸'; position: absolute; left: 0; color: var(--accent); font-size: .65rem; top: 3px; }
+    .flow-row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .9rem; }
+    .flow-step {
+      font-family: var(--mono); font-size: .65rem; padding: 2px 7px; border-radius: 4px;
+      background: var(--surf2); border: 1px solid var(--border); color: var(--muted);
+    }
+    .flow-arrow { color: var(--border); font-size: .7rem; }
+
+    /* ── PERFORMANCE ── */
+    .perf-note { font-family: var(--mono); font-size: .74rem; color: var(--muted); margin-bottom: 2rem; }
+    .perf-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: .82rem; }
+    .perf-table th {
+      text-align: left; padding: .7rem 1rem; color: var(--muted); font-size: .68rem;
+      letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--border);
+    }
+    .perf-table td { padding: .95rem 1rem; border-bottom: 1px solid rgba(51, 65, 85, .5); vertical-align: middle; }
+    .perf-table tr:last-child td { border-bottom: none; }
+    .pt-tool { color: var(--accent); font-weight: 700; }
+    .pt-ref { color: var(--muted); }
+    .bar-wrap { display: flex; align-items: center; gap: .75rem; }
+    .bar-bg { flex: 1; height: 5px; background: var(--surf); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+    .bar-num { font-size: .78rem; min-width: 56px; text-align: right; }
+    .pass-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: .68rem; background: rgba(16, 185, 129, 0.12);
+      color: var(--success); border: 1px solid rgba(16, 185, 129, 0.28);
+    }
+    .perf-method { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin-top: 1rem; }
+
+    /* ── CHALLENGES ── */
+    #challenges { background: var(--surf); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .chal-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 1.25rem; }
+    .chal-card { background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 1.4rem; }
+    .chal-tag {
+      font-family: var(--mono); font-size: .65rem; color: var(--accent);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 4px;
+      padding: 1px 7px; display: inline-block; margin-bottom: .75rem;
+    }
+    .chal-card h3 { font-size: .88rem; font-weight: 700; color: var(--warn); margin-bottom: .45rem; }
+    .chal-card p { font-size: .8rem; color: var(--muted); line-height: 1.6; }
+    .chal-card .solution {
+      margin-top: .7rem; padding-top: .7rem; border-top: 1px solid var(--border);
+      font-size: .8rem; color: var(--text); line-height: 1.6;
+    }
+
+    /* ── FOOTER ── */
+    footer { padding: 2.5rem 1.5rem; border-top: 1px solid var(--border); text-align: center; }
+    .team-grid { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; margin-bottom: 1rem; }
+    .team-pill {
+      font-family: var(--mono); font-size: .72rem; padding: 4px 12px; border-radius: 20px;
+      background: var(--surf); border: 1px solid var(--border); color: var(--muted);
+    }
+    .team-pill strong { color: var(--text); }
+    .footer-meta { font-size: .75rem; color: var(--muted); opacity: .5; margin-top: .5rem; }
+
+    /* reveal */
+    .rev { opacity:0; transform:translateY(18px); transition: opacity .55s ease, transform .55s ease; }
+    .rev.vis { opacity:1; transform:translateY(0); }
+
+    @media (max-width:640px) {
+      nav { padding: 0 1rem; }
+      .nav-links { gap: 1.1rem; }
+      .arch-layer { grid-template-columns: 1fr; }
+      .arch-layer-label { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
 </head>
-<body class="bg-gray-900 text-gray-200 font-sans antialiased leading-relaxed">
+<body>
 
-    <header class="container mx-auto px-6 py-20 text-center">
-        <h1 class="text-5xl font-extrabold text-white tracking-tight mb-4">
-            BusyBox-<span class="text-primary">Diag</span>
-        </h1>
-        <p class="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-            專為資源受限的嵌入式環境打造，單一 Binary 整合 Process、Filesystem 與 Network 的輕量 Linux 系統診斷工具組。
-        </p>
-        <div class="flex justify-center gap-4">
-            <a href="https://github.com/aloea4/BusyBox-Diag" class="bg-primary hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 shadow-lg shadow-blue-500/30">
-                View on GitHub
-            </a>
-            <a href="manual.html" class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-3 px-6 rounded-lg border border-gray-700 transition duration-300">
-                使用手冊
-            </a>
+<nav>
+  <a class="nav-logo" href="#">BusyBox<span>-Diag</span></a>
+  <ul class="nav-links">
+    <li><a href="#motivation">動機</a></li>
+    <li><a href="#arch">架構</a></li>
+    <li><a href="#tools">工具集</a></li>
+    <li><a href="#performance">效能</a></li>
+    <li><a href="https://github.com/aloea4/BusyBox-Diag" target="_blank">GitHub</a></li>
+    <li><a href="manual.html">文件</a></li>
+  </ul>
+</nav>
+
+<section id="hero">
+  <p class="course-tag">NCUE · UNIX 系統程式設計 · 2026 Spring · 第 9 組</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
+      <span class="term-title">kuang@macbook-air:~$</span>
+    </div>
+    <div class="term-body" id="termBody"><span class="cursor" id="cur"></span></div>
+  </div>
+
+  <h1 class="hero-h">
+    嵌入式 Linux 診斷，<br/><em>零外部依賴</em>
+  </h1>
+  <p class="hero-sub">
+    單一 Binary，整合 Process、Filesystem、Network 三類診斷能力。<br/>
+    專為 BusyBox 環境打造，零外部函式庫依賴。
+  </p>
+  <div class="badges">
+    <span class="badge">零外部依賴</span>
+    <span class="badge">單一 Binary</span>
+    <span class="badge">Table / Raw / JSON</span>
+    <span class="badge">管線友好</span>
+    <span class="badge">嵌入式 / 容器</span>
+    <span class="badge">BusyBox Applet</span>
+  </div>
+  <div class="cta">
+    <a href="https://github.com/aloea4/BusyBox-Diag" class="btn-p" target="_blank">↗ GitHub</a>
+    <a href="manual.html" class="btn-s">使用手冊</a>
+    <a href="https://youtu.be/RpJ_QYMCAKo" class="btn-s" target="_blank">▶ Demo 影片</a>
+  </div>
+</section>
+
+<section id="motivation">
+  <div class="inner">
+    <p class="sec-label rev">研究背景與動機</p>
+    <h2 class="sec-title rev">嵌入式系統診斷的三個根本困境</h2>
+
+    <div class="motiv-grid">
+      <div class="motiv-card rev">
+        <p class="motiv-num">01</p>
+        <h3>部署複雜度</h3>
+        <p>top、df、ss 各自依賴獨立的動態函式庫。在容量受限的 rootfs 中，分別安裝的開銷往往超出可接受範圍，且版本相依管理複雜。</p>
+      </div>
+      <div class="motiv-card rev">
+        <p class="motiv-num">02</p>
+        <h3>介面不一致</h3>
+        <p>各工具的 CLI 介面與輸出格式差異顯著，難以整合至統一的自動化監控框架或 shell pipeline 流程中。</p>
+      </div>
+      <div class="motiv-card rev">
+        <p class="motiv-num">03</p>
+        <h3>資源消耗過大</h3>
+        <p>傳統互動式工具（如完整版 top）具有 ncurses 介面，在僅需擷取單次快照的場景下，啟動開銷與記憶體佔用明顯過大。</p>
+      </div>
+    </div>
+
+    <div class="cmp-wrap rev" style="margin-top:3rem;">
+      <p class="sec-label" style="margin-bottom:.75rem;">系統定位對比</p>
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>比較項目</th>
+            <th>GNU Utils (top/ss/df)</th>
+            <th>標準 BusyBox</th>
+            <th class="col-ours">BusyBox-Diag</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>外部相依性</td>
+            <td class="cross">高（多種 lib）</td>
+            <td class="tick">0</td>
+            <td class="col-ours tick">0</td>
+          </tr>
+          <tr>
+            <td>部署模式</td>
+            <td class="cross">分散安裝</td>
+            <td class="tick">單一 binary</td>
+            <td class="col-ours tick">單一 binary（Applet）</td>
+          </tr>
+          <tr>
+            <td>網路狀態支援</td>
+            <td class="tick">完整支援</td>
+            <td class="cross">缺乏（無 ss）</td>
+            <td class="col-ours tick">支援（被動解析）</td>
+          </tr>
+          <tr>
+            <td>Inode / Extent 分析</td>
+            <td class="tick">完整支援</td>
+            <td class="partial">僅基本空間</td>
+            <td class="col-ours tick">支援（statfs / fiemap）</td>
+          </tr>
+          <tr>
+            <td>JSON 輸出支援</td>
+            <td class="cross">不一致</td>
+            <td class="cross">不支援</td>
+            <td class="col-ours tick">完整支援（Table/Raw/JSON）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="arch">
+  <div class="inner">
+    <p class="sec-label rev">系統架構</p>
+    <h2 class="sec-title rev">嚴格四層分離，資料由核心向上單向流動</h2>
+
+    <div class="arch-layers rev">
+      <div class="arch-layer">
+        <div class="arch-layer-label">Kernel 介面層</div>
+        <div class="arch-layer-content">
+          <strong>系統真實狀態來源</strong>
+          <p>直接讀取 Linux kernel 匯出的介面，不依賴任何私有 API 或外部函式庫。</p>
+          <div class="arch-items">
+            <span class="arch-item">/proc/net/tcp・udp</span>
+            <span class="arch-item">/proc/[pid]/stat・status</span>
+            <span class="arch-item">/proc/stat・meminfo・mounts</span>
+            <span class="arch-item">statfs() syscall</span>
+          </div>
         </div>
-    </header>
-
-    <section class="bg-gray-850 py-16 border-y border-gray-800">
-        <div class="container mx-auto px-6">
-            <h2 class="text-3xl font-bold text-white mb-10 text-center">核心設計亮點</h2>
-            <div class="grid md:grid-cols-2 gap-8">
-                <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-primary transition">
-                    <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                        <span class="text-primary">01.</span> 零外部依賴與嚴格分層
-                    </h3>
-                    <p class="text-gray-400 text-sm">採用「量測、分析、策略、展示」嚴格的四層架構設計。直接讀取 /proc 與 statfs()，不依賴 libprocps 或 ncurses，確保各層邏輯獨立。</p>
-                </div>
-                <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-primary transition">
-                    <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                        <span class="text-primary">02.</span> Libdiag 共用基礎設施
-                    </h3>
-                    <p class="text-gray-400 text-sm">獨立出 libdiag 模組統一處理字串解析與系統呼叫容錯。上層工具透過標準化結構體取用資料，實現真正的關注點分離。</p>
-                </div>
-                <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-primary transition">
-                    <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                        <span class="text-primary">03.</span> 統一與輕量部署
-                    </h3>
-                    <p class="text-gray-400 text-sm">深度依賴 BusyBox 的 argv[0] applet dispatch 機制，並支援 symlink 呼叫，達成單一執行檔多重功能的極致輕量化。</p>
-                </div>
-                <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-primary transition">
-                    <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                        <span class="text-primary">04.</span> 智慧輸出與管線防呆
-                    </h3>
-                    <p class="text-gray-400 text-sm">整合 isatty() 偵測終端機環境。支援 table、raw 與 json 輸出，一旦被 pipe 導出則自動關閉 ANSI 控制字元避免資料污染。</p>
-                </div>
-            </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">libdiag 量測層</div>
+        <div class="arch-layer-content">
+          <strong>共用量測基礎設施（Zero-malloc 設計）</strong>
+          <p>封裝 procfs 字串解析與 statfs 系統呼叫容錯，輸出強型別 C 結構體，讓三個工具不需各自重複實作底層解析邏輯。</p>
+          <div class="arch-items">
+            <span class="arch-item">diag_proc_t</span>
+            <span class="arch-item">diag_fs_t</span>
+            <span class="arch-item">diag_net_entry_t</span>
+            <span class="arch-item">串流 Callback 介面</span>
+          </div>
         </div>
-    </section>
-
-    <section class="container mx-auto px-6 py-20">
-        <h2 class="text-3xl font-bold text-white mb-12 text-center">系統診斷工具集簡介</h2>
-        <div class="space-y-8 max-w-4xl mx-auto">
-            
-            <div class="bg-gray-850 rounded-lg p-8 border border-gray-800 relative overflow-hidden">
-                <div class="absolute top-0 right-0 bg-primary/10 text-primary font-mono px-3 py-1 rounded-bl-lg text-sm">ptop</div>
-                <h3 class="text-2xl font-bold text-white mb-2">輕量行程資源分析器</h3>
-                <p class="text-gray-400 mb-4">專為批次分析與腳本化監控設計，徹底解決傳統互動式 top 的自動化痛點。</p>
-                <ul class="list-disc list-inside text-sm text-gray-300 space-y-2">
-                    <li><strong class="text-white">精確時間點基準：</strong>採用 clock_gettime(CLOCK_MONOTONIC)，避免時間逆跳。</li>
-                    <li><strong class="text-white">Snapshot-Delta 演算法：</strong>擷取雙時間點的 CPU jiffies 快照進行差分，還原真實使用率。</li>
-                    <li><strong class="text-white">VmRSS 記憶體觀測：</strong>直接反映系統真實實體記憶體壓力，摒棄虛擬記憶體總量。</li>
-                </ul>
-            </div>
-
-            <div class="bg-gray-850 rounded-lg p-8 border border-gray-800 relative overflow-hidden">
-                <div class="absolute top-0 right-0 bg-accent/10 text-accent font-mono px-3 py-1 rounded-bl-lg text-sm">diagfs</div>
-                <h3 class="text-2xl font-bold text-white mb-2">檔案系統健康檢測工具</h3>
-                <p class="text-gray-400 mb-4">無縫整合空間與 Inode 監控，專注解決容器時代的掛載複雜性。</p>
-                <ul class="list-disc list-inside text-sm text-gray-300 space-y-2">
-                    <li><strong class="text-white">Namespace 感知：</strong>解析 /proc/self/mounts，突破 Docker 隔離環境視角誤差。</li>
-                    <li><strong class="text-white">防溢位與 Ceiling 策略：</strong>Inode 計算採無條件進位，確保臨界點前精準觸發警報。</li>
-                </ul>
-            </div>
-
-            <div class="bg-gray-850 rounded-lg p-8 border border-gray-800 relative overflow-hidden">
-                <div class="absolute top-0 right-0 bg-purple-500/10 text-purple-400 font-mono px-3 py-1 rounded-bl-lg text-sm">diagnet</div>
-                <h3 class="text-2xl font-bold text-white mb-2">網路連線狀態監控器</h3>
-                <p class="text-gray-400 mb-4">被動式的核心 Socket 觀察器，不主動發送封包。</p>
-                <ul class="list-disc list-inside text-sm text-gray-300 space-y-2">
-                    <li><strong class="text-white">常數級空間複雜度：</strong>串流回呼介面，純統計模式下記憶體開銷不再隨連線數量暴增。</li>
-                    <li><strong class="text-white">Endianness 處理：</strong>精準將 Little-endian 十六進位還原為標準 Dotted-quad 格式。</li>
-                </ul>
-            </div>
-
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">工具邏輯層</div>
+        <div class="arch-layer-content">
+          <strong>三個 BusyBox Applet，各自實作分析 / 策略 / 過濾邏輯</strong>
+          <div class="arch-items" style="margin-top:.6rem;">
+            <span class="arch-item">diagfs — 空間/Inode 運算 → 健康閾值判定</span>
+            <span class="arch-item">ptop — Snapshot-Delta → Filter/Sort/Top-N</span>
+            <span class="arch-item">diagnet — Streaming 串流解析 → 狀態/通訊埠篩選</span>
+          </div>
         </div>
-    </section>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">展示層</div>
+        <div class="arch-layer-content">
+          <strong>BusyBox argv[0] Dispatch + isatty() 偵測</strong>
+          <p>單一執行檔透過 symlink 分流至各 applet，isatty() 自動判斷輸出環境，pipe 時關閉 ANSI 色碼防止資料污染。</p>
+          <div class="arch-items">
+            <span class="arch-item">Table（人機互動 / ANSI 色彩）</span>
+            <span class="arch-item">Raw（Shell Pipeline / grep / awk）</span>
+            <span class="arch-item">JSON（自動化監控 / 結構化解析）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-    <section class="bg-gray-850 py-16 border-y border-gray-800">
-        <div class="container mx-auto px-6 max-w-4xl">
-            <h2 class="text-3xl font-bold text-white mb-8 text-center">效能與驗證成果</h2>
-            <div class="overflow-x-auto rounded-lg border border-gray-700">
-                <table class="w-full text-left text-sm text-gray-300">
-                    <thead class="bg-gray-800 text-gray-100 uppercase font-semibold">
-                        <tr>
-                            <th class="px-6 py-4">診斷模組</th>
-                            <th class="px-6 py-4">對照基準 (Reference)</th>
-                            <th class="px-6 py-4">效能比值</th>
-                            <th class="px-6 py-4 text-center">測試結果</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-700 bg-gray-900">
-                        <tr class="hover:bg-gray-800/50 transition">
-                            <td class="px-6 py-4 font-mono text-primary">ptop</td>
-                            <td class="px-6 py-4">GNU top</td>
-                            <td class="px-6 py-4 font-bold text-white">0.868 <span class="text-accent text-xs font-normal ml-1">更快速</span></td>
-                            <td class="px-6 py-4 text-center text-accent">✅ 通過</td>
-                        </tr>
-                        <tr class="hover:bg-gray-800/50 transition">
-                            <td class="px-6 py-4 font-mono text-primary">diagfs</td>
-                            <td class="px-6 py-4">GNU df</td>
-                            <td class="px-6 py-4 font-bold text-white">0.986 <span class="text-accent text-xs font-normal ml-1">更快速</span></td>
-                            <td class="px-6 py-4 text-center text-accent">✅ 通過</td>
-                        </tr>
-                        <tr class="hover:bg-gray-800/50 transition">
-                            <td class="px-6 py-4 font-mono text-primary">diagnet</td>
-                            <td class="px-6 py-4">iproute2 ss</td>
-                            <td class="px-6 py-4 font-bold text-white">1.196 <span class="text-gray-400 text-xs font-normal ml-1">符合標準</span></td>
-                            <td class="px-6 py-4 text-center text-accent">✅ 通過</td>
-                        </tr>
-                    </tbody>
-                </table>
+<section id="tools">
+  <div class="inner">
+    <p class="sec-label rev">系統診斷工具集</p>
+    <h2 class="sec-title rev">三支工具，覆蓋系統診斷全場景</h2>
+
+    <div class="tools-grid">
+
+      <div class="tool-card rev">
+        <div class="tool-mock-term">
+          <div class="mock-term-header">
+            <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
+          </div>
+          <div class="mock-term-body"><span class="mt-prompt">$</span>ptop --output table -1 -n 1
+  PID  PPID S   RSS_KB  UTIME  STIME COMM
+    1     0 S     9100      1      0 sshd
+   20     0 S     1756      1      4 sh
+  <span class="mt-warn">148   136 S    48380      3      0 node</span>
+  <span class="mt-warn">163   149 S   150532    424    147 node</span></div>
+        </div>
+        <div class="tool-body">
+          <p class="tool-name">ptop</p>
+          <p class="tool-tagline">行程資源分析器</p>
+          <ul class="tool-ul">
+            <li>Snapshot-Delta 架構：兩次快照差分，還原觀測區間真實 CPU 使用率</li>
+            <li>clock_gettime 避免 NTP 校正造成時間逆跳</li>
+            <li>VmRSS 直接反映實體記憶體壓力</li>
+            <li>依 PID 配對前後快照（bsearch）</li>
+          </ul>
+          <div class="flow-row">
+            <span class="flow-step">CLI Parse</span><span class="flow-arrow">→</span>
+            <span class="flow-step">Collect prev</span><span class="flow-arrow">→</span>
+            <span class="flow-step">sleep(d)</span><span class="flow-arrow">→</span>
+            <span class="flow-step">Collect curr</span><span class="flow-arrow">→</span>
+            <span class="flow-step">Delta Compute</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tool-card rev">
+        <div class="tool-mock-term">
+          <div class="mock-term-header">
+            <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
+          </div>
+          <div class="mock-term-body"><span class="mt-prompt">$</span>diagfs --output table /
+Filesystem snapshot:
+  path         = /
+  <span class="mt-warn">fs_type      = 0x794c7630 (unknown)</span>
+  total_kb     = 1055762868
+  <span class="mt-green">free_kb      = 1046238932</span></div>
+        </div>
+        <div class="tool-body">
+          <p class="tool-name">diagfs</p>
+          <p class="tool-tagline">檔案系統健康檢測工具</p>
+          <ul class="tool-ul">
+            <li>讀取 /proc/self/mounts，具備 Mount Namespace 感知</li>
+            <li>Inode 計算採無條件進位（Ceiling）</li>
+            <li>整合 FIEMAP ioctl 觀察 Extent 佈局</li>
+            <li>自動排除 proc 等 9 種虛擬檔案系統</li>
+          </ul>
+          <div class="flow-row">
+            <span class="flow-step">量測層</span><span class="flow-arrow">→</span>
+            <span class="flow-step">分析層</span><span class="flow-arrow">→</span>
+            <span class="flow-step">策略層（閾值）</span><span class="flow-arrow">→</span>
+            <span class="flow-step">展示層</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tool-card rev">
+        <div class="tool-mock-term">
+          <div class="mock-term-header">
+            <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
+          </div>
+          <div class="mock-term-body"><span class="mt-prompt">$</span>diagnet --output table
+<span class="mt-blue">tcp</span>  0.0.0.0       :22    -> 0.0.0.0         :0    LISTEN
+<span class="mt-blue">tcp</span>  127.0.0.1     :34211 -> 0.0.0.0         :0    LISTEN
+<span class="mt-warn">tcp</span>  172.17.0.2    :43288 -> 172.64.155.209  :443  TIME_WAIT
+<span class="mt-green">tcp</span>  127.0.0.1     :60110 -> 127.0.0.1       :34211 ESTABLISHED</div>
+        </div>
+        <div class="tool-body">
+          <p class="tool-name">diagnet</p>
+          <p class="tool-tagline">網路連線狀態監控器</p>
+          <ul class="tool-ul">
+            <li>被動觀察 /proc/net/tcp，不主動發送封包</li>
+            <li>串流 Callback 介面：空間複雜度 O(1)</li>
+            <li>固定大小直方圖：TCP state 統計維持 O(1)</li>
+            <li>正確處理 little-endian dotted-quad 還原</li>
+          </ul>
+          <div class="flow-row">
+            <span class="flow-step">procfs</span><span class="flow-arrow">→</span>
+            <span class="flow-step">libdiag callback</span><span class="flow-arrow">→</span>
+            <span class="flow-step">Filter/Analyze</span><span class="flow-arrow">→</span>
+            <span class="flow-step">Output</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="performance">
+  <div class="inner">
+    <p class="sec-label rev">效能驗證</p>
+    <h2 class="sec-title rev">三個 benchmark case 全部通過，且均不慢於對照工具</h2>
+    <p class="perf-note rev">
+      效能比值 = 自製工具中位數時間 ÷ 對照組中位數時間。目標門檻 &lt; 1.50（50% 差距內）。<br/>
+      200 次迭代取中位數，測試環境：Ubuntu 22.04 / Kernel 6.6 WSL2 / Intel i5-1135G7。
+    </p>
+
+    <table class="perf-table rev">
+      <thead>
+        <tr>
+          <th>測試案例</th>
+          <th>工具</th>
+          <th>對照基準</th>
+          <th>效能比值</th>
+          <th>判定</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">M3-PTOP-01</td>
+          <td><span class="pt-tool">ptop</span></td>
+          <td><span class="pt-ref">GNU top</span></td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-bg"><div class="bar-fill" style="width:57.9%"></div></div>
+              <span class="bar-num">0.868×</span>
             </div>
-            <p class="text-xs text-gray-500 mt-4 text-center">* 效能比值 = 自製工具中位數時間 / 對照工具中位數時間。目標為 < 1.50。</p>
-        </div>
-    </section>
+          </td>
+          <td><span class="pass-badge">✓ PASS</span></td>
+        </tr>
+        <tr>
+          <td style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">M3-DIAGFS-01</td>
+          <td><span class="pt-tool">diagfs</span></td>
+          <td><span class="pt-ref">GNU df</span></td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-bg"><div class="bar-fill" style="width:61.3%"></div></div>
+              <span class="bar-num">0.920×</span>
+            </div>
+          </td>
+          <td><span class="pass-badge">✓ PASS</span></td>
+        </tr>
+        <tr>
+          <td style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">M3-DIAGNET-01</td>
+          <td><span class="pt-tool">diagnet</span></td>
+          <td><span class="pt-ref">iproute2 ss</span></td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-bg"><div class="bar-fill" style="width:79.7%"></div></div>
+              <span class="bar-num">1.196×</span>
+            </div>
+          </td>
+          <td><span class="pass-badge">✓ PASS</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="perf-method rev">bar 長度代表比值相對於目標門檻 1.50 的位置；越短代表越快。ptop 與 diagfs 比值小於 1，代表自製工具快於對照組。</p>
+  </div>
+</section>
 
-    <footer class="container mx-auto px-6 py-12 text-center border-t border-gray-800 mt-12">
-        <h4 class="text-lg font-bold text-white mb-4">開發團隊 (NCUE)</h4>
-        <div class="flex flex-wrap justify-center gap-4 text-gray-400 text-sm">
-            <span>鄺采霓 (專題規劃 / diagfs)</span>
-            <span class="text-gray-600">|</span>
-            <span>施丞澤 (libdiag / BusyBox 整合)</span>
-            <span class="text-gray-600">|</span>
-            <span>凌浩雲 (ptop)</span>
-            <span class="text-gray-600">|</span>
-            <span>方梓寧 (diagnet)</span>
-        </div>
-        <p class="text-xs text-gray-600 mt-8">© 2026 BusyBox-Diag Project</p>
-    </footer>
+<section id="challenges">
+  <div class="inner">
+    <p class="sec-label rev">困難與解決方案</p>
+    <h2 class="sec-title rev">開發過程中遭遇的三類設計難題</h2>
 
+    <div class="chal-grid">
+      <div class="chal-card rev">
+        <span class="chal-tag">ptop</span>
+        <h3>單次 procfs 讀取無法表示 CPU 使用率</h3>
+        <p>/proc/[pid]/stat 的 utime、stime 是累積 jiffies，直接換算會讓閒置行程呈現虛高的使用率。</p>
+        <p class="solution">→ 採用 Snapshot-Delta 架構，擷取兩次快照的 jiffies 差值推導真實負載。以 bsearch() 依 PID 配對，穩定處理行程動態生滅。</p>
+      </div>
+      <div class="chal-card rev">
+        <span class="chal-tag">diagfs</span>
+        <h3>Docker 環境下掛載點視角落差</h3>
+        <p>讀取 /proc/mounts 會取得宿主機掛載表，被容器特有的虛擬檔案系統污染，導致狀態誤判。</p>
+        <p class="solution">→ 改用 /proc/self/mounts，賦予程式 Mount Namespace Awareness，確保容器與實體機環境均能反映正確視角。</p>
+      </div>
+      <div class="chal-card rev">
+        <span class="chal-tag">diagnet</span>
+        <h3>/proc/net/tcp IP 位址位元組序錯誤</h3>
+        <p>核心序列化時直接以十六進位印出 host-order 的 s_addr，在 x86 平台為 little-endian，導致 127.0.0.1 被誤讀為 1.0.0.127。</p>
+        <p class="solution">→ 實作 diag_ipv4_hex_le_to_str，解析為 unsigned int 後自 LSB 依序提取位元組還原，函式名稱保留 _le_ 後綴作為合約標記。</p>
+      </div>
+      <div class="chal-card rev">
+        <span class="chal-tag">diagnet</span>
+        <h3>--stats 模式記憶體無界成長</h3>
+        <p>「全收集 → 排序 → 統計」流程在連線數龐大的主機上累積大量記錄，與嵌入式場景的記憶體預算衝突。</p>
+        <p class="solution">→ 串流導向處理（Stream-oriented），在 callback 階段直接累加計數，條件式跳過明細儲存，空間複雜度從 O(N) 退化至 O(1)。</p>
+      </div>
+      <div class="chal-card rev">
+        <span class="chal-tag">ptop</span>
+        <h3>互動式顯示與 shell pipeline 相容性衝突</h3>
+        <p>ANSI 色彩與控制字元一旦被 pipe 傳遞至 awk，造成資料污染，破壞可解析性。</p>
+        <p class="solution">→ 以 isatty(STDOUT_FILENO) 自動偵測輸出環境，TTY 走 ptop_render_tty()，非 TTY 強制退回 batch 模式，兩種情境均兼顧。</p>
+      </div>
+      <div class="chal-card rev">
+        <span class="chal-tag">diagnet</span>
+        <h3>效能對照基準不對等導致比值失真</h3>
+        <p>早期版本以 ss -tn 對照，但 ss 預設排除 LISTEN 與 TIME_WAIT，而 diagnet 列出所有狀態，工作量不對等，v2 比值達 1.95。</p>
+        <p class="solution">→ 自 v4 起改為 ss -tna / ss -tnua，並同步將 -O3 -flto 傳遞至 libdiag，修正後 v5 三組比值均降至 1.50 以內。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="inner">
+    <p style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-bottom:.9rem;">
+      NCUE · UNIX 系統程式設計期末專題 · 第 9 組
+    </p>
+    <div class="team-grid">
+      <span class="team-pill"><strong>鄺采霓</strong> S1261115 — 專題規劃 / diagfs</span>
+      <span class="team-pill"><strong>施丞澤</strong> S1254005 — libdiag / BusyBox 整合</span>
+      <span class="team-pill"><strong>凌浩雲</strong> S1254020 — ptop</span>
+      <span class="team-pill"><strong>方梓寧</strong> S1267013 — diagnet</span>
+    </div>
+    <p class="footer-meta">© 2026 BusyBox-Diag Project · <a href="https://github.com/aloea4/BusyBox-Diag" style="color:var(--muted)">GitHub</a></p>
+  </div>
+</footer>
+
+<script>
+// terminal typewriter
+const lines = [
+  { 
+    cmd:'ptop', 
+    flags:' --output table -1 -n 1', 
+    out:'  PID  PPID S   RSS_KB  UTIME  STIME COMM\n    1     0 S     9100      1      0 sshd\n   20     0 S     1756      1      4 sh\n  148   136 S    48380      3      0 node\n  163   149 S   150532    424    147 node' 
+  },
+  { 
+    cmd:'diagfs', 
+    flags:' --output table /', 
+    out:'Filesystem snapshot:\n  path         = /\n  fs_type      = 0x794c7630 (unknown)\n  total_kb     = 1055762868\n  free_kb      = 1046238932' 
+  },
+  { 
+    cmd:'diagnet', 
+    flags:' --output table', 
+    out:'tcp  0.0.0.0       :22    -> 0.0.0.0         :0    LISTEN\ntcp  127.0.0.1     :34211 -> 0.0.0.0         :0    LISTEN\ntcp  172.17.0.2    :43288 -> 172.64.155.209  :443  TIME_WAIT\ntcp  127.0.0.1     :60110 -> 127.0.0.1       :34211 ESTABLISHED' 
+  },
+];
+const body = document.getElementById('termBody');
+const cur  = document.getElementById('cur');
+
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+async function typeLine(l) {
+  const row = document.createElement('div');
+  body.insertBefore(row, cur);
+
+  const p = document.createElement('span'); p.className='tp'; p.textContent='$ '; row.appendChild(p);
+  const c = document.createElement('span'); c.className='tc'; row.appendChild(c);
+  const f = document.createElement('span'); f.className='tf'; row.appendChild(f);
+
+  for(const ch of l.cmd)   { c.textContent+=ch; await delay(55); }
+  for(const ch of l.flags) { f.textContent+=ch; await delay(30); }
+  await delay(250);
+
+  for(const line of l.out.split('\n')) {
+    const o = document.createElement('span'); o.className='to'; body.insertBefore(o,cur);
+    for(const ch of line) { o.textContent+=ch; await delay(10); }
+  }
+  await delay(600);
+
+  // keep max 3 "commands" visible
+  const all = [...body.querySelectorAll('div')];
+  if(all.length > 3) all[0].remove();
+}
+
+async function run() {
+  await delay(700);
+  for(const l of lines) await typeLine(l);
+  cur.style.display='inline-block';
+}
+window.addEventListener('load', run);
+
+// scroll reveal
+const obs = new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('vis'); });
+},{threshold:.1});
+document.querySelectorAll('.rev').forEach(el=>obs.observe(el));
+</script>
 </body>
 </html>

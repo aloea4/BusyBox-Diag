@@ -340,7 +340,7 @@ sudo rm -rf /usr/local/busybox-diag
                 <div class="space-y-4">
                     <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
                         <h4 class="text-white font-bold mb-1 text-sm flex items-center gap-2">
-                            <span class="text-warning">💥 故障 1:</span> <code class="font-mono text-red-400">diagfs: command not found</code>
+                            <span class="text-warning">故障 1:</span> <code class="font-mono text-red-400">diagfs: command not found</code>
                         </h4>
                         <p class="text-xs text-gray-400">原因：當前終端機對話尚未導入二進位安裝路徑。</p>
                         <p class="text-xs text-accent mt-1">解法：手動執行 <code class="font-mono text-gray-300 bg-gray-950 px-1 rounded">export PATH=/usr/local/busybox-diag/bin:$PATH</code>。</p>
@@ -348,7 +348,7 @@ sudo rm -rf /usr/local/busybox-diag
 
                     <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
                         <h4 class="text-white font-bold mb-1 text-sm flex items-center gap-2">
-                            <span class="text-warning">💥 故障 2:</span> <code class="font-mono text-yellow-400">Filesystem type: unknown</code>
+                            <span class="text-warning">故障 2:</span> <code class="font-mono text-yellow-400">Filesystem type: unknown</code>
                         </h4>
                         <p class="text-xs text-gray-400">原因：容器虛擬化環境（如 Docker OverlayFS）特殊的掛載型態未包含在輕量化靜態映射表內。</p>
                         <p class="text-xs text-accent mt-1">解法：此為正常已知限制，底層區塊層空間與 Inode 指標依然精確有效，不影響業務診斷。</p>
@@ -356,7 +356,7 @@ sudo rm -rf /usr/local/busybox-diag
 
                     <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
                         <h4 class="text-white font-bold mb-1 text-sm flex items-center gap-2">
-                            <span class="text-warning">💥 故障 3:</span> 效能測試指標中出現許多 <code class="font-mono text-gray-400">SKIP</code>
+                            <span class="text-warning">故障 3:</span> 效能測試指標中出現許多 <code class="font-mono text-gray-400">SKIP</code>
                         </h4>
                         <p class="text-xs text-gray-400">原因：測試執行環境屬於精簡版最小化容器，系統內缺乏 <code class="font-mono">ss</code> 或 <code class="font-mono">/usr/bin/time</code> 等原生對照組基準工具。</p>
                         <p class="text-xs text-accent mt-1">解法：這代表對照組被跳過，自製工具本體功能依然完全合格，於主機補齊套件即可。</p>
