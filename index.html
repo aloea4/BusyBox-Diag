@@ -57,6 +57,10 @@
       letter-spacing: .06em; transition: color .2s;
     }
     .nav-links a:hover { color: var(--accent); }
+    .nav-toggle {
+      display: none; background: none; border: none;
+      color: var(--text); font-size: 1.3rem; cursor: pointer; line-height: 1;
+    }
 
     /* ── HERO ── */
     #hero {
@@ -106,6 +110,7 @@
     .term-body {
       padding: 0.8rem 1.2rem; font-family: var(--mono);
       font-size: .75rem; line-height: 1.6; min-height: 100px; text-align: left;
+      overflow-x: auto;
     }
     .tp { color: var(--success); }
     .tc { color: var(--text); }
@@ -326,7 +331,15 @@
 
     @media (max-width:640px) {
       nav { padding: 0 1rem; }
-      .nav-links { gap: 1.1rem; }
+      .nav-toggle { display: block; }
+      .nav-links {
+        position: absolute; top: 54px; right: 0; left: 0;
+        flex-direction: column; gap: .9rem;
+        background: rgba(15, 23, 42, 0.96);
+        border-bottom: 1px solid var(--border);
+        padding: .9rem 1.25rem; display: none;
+      }
+      .nav-links.open { display: flex; }
       .arch-layer { grid-template-columns: 1fr; }
       .arch-layer-label { border-right: none; border-bottom: 1px solid var(--border); }
     }
@@ -336,7 +349,7 @@
 
 <nav>
   <a class="nav-logo" href="#">BusyBox<span>-Diag</span></a>
-  <ul class="nav-links">
+  <ul class="nav-links" id="navLinks">
     <li><a href="#motivation">動機</a></li>
     <li><a href="#arch">架構</a></li>
     <li><a href="#tools">工具集</a></li>
@@ -344,6 +357,7 @@
     <li><a href="https://github.com/aloea4/BusyBox-Diag" target="_blank">GitHub</a></li>
     <li><a href="manual.html">文件</a></li>
   </ul>
+  <button class="nav-toggle" id="navToggle" aria-label="選單" aria-expanded="false">☰</button>
 </nav>
 
 <section id="hero">
@@ -619,7 +633,8 @@ Filesystem snapshot:
       200 次迭代取中位數，測試環境：Ubuntu 22.04 / Kernel 6.6 WSL2 / Intel i5-1135G7。
     </p>
 
-    <table class="perf-table rev">
+    <div class="cmp-wrap rev">
+    <table class="perf-table">
       <thead>
         <tr>
           <th>測試案例</th>
@@ -668,6 +683,7 @@ Filesystem snapshot:
         </tr>
       </tbody>
     </table>
+    </div>
     <p class="perf-method rev">bar 長度代表比值相對於目標門檻 1.50 的位置；越短代表越快。ptop 與 diagfs 比值小於 1，代表自製工具快於對照組。</p>
   </div>
 </section>
@@ -786,6 +802,18 @@ async function run() {
   cur.style.display='inline-block';
 }
 window.addEventListener('load', run);
+
+// mobile nav toggle
+const navToggle = document.getElementById('navToggle');
+const navLinks  = document.getElementById('navLinks');
+navToggle.addEventListener('click', () => {
+  const open = navLinks.classList.toggle('open');
+  navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+});
+navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+  navLinks.classList.remove('open');
+  navToggle.setAttribute('aria-expanded', 'false');
+}));
 
 // scroll reveal
 const obs = new IntersectionObserver(es=>{

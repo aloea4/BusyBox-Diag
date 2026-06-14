@@ -55,6 +55,29 @@
         
         <!-- Left Sidebar Navigation (Table of Contents) -->
         <aside class="lg:w-1/4 shrink-0">
+            <details class="lg:hidden bg-gray-850 p-4 rounded-xl border border-gray-800 mb-6">
+                <summary class="text-xs font-bold uppercase tracking-wider text-gray-400 cursor-pointer select-none">目錄導覽</summary>
+                <ul class="space-y-2 text-sm mt-4">
+                    <li><a href="#sec-1" class="block text-gray-400 hover:text-primary transition py-1">1. 專案總覽</a></li>
+                    <li><a href="#sec-2" class="block text-gray-400 hover:text-primary transition py-1">2. 開始前所需環境</a></li>
+                    <li><a href="#sec-3" class="block text-gray-400 hover:text-primary transition py-1">3. 下載 BusyBox 原始碼</a></li>
+                    <li><a href="#sec-4" class="block text-gray-400 hover:text-primary transition py-1">4. 取得 BusyBox-Diag Repo</a></li>
+                    <li><a href="#sec-5" class="block text-gray-400 hover:text-primary transition py-1">5. 一鍵 Bootstrap 安裝</a></li>
+                    <li><a href="#sec-6" class="block text-gray-400 hover:text-primary transition py-1">6. 安裝後驗證</a></li>
+                    <li><a href="#sec-7" class="block text-gray-400 hover:text-primary transition py-1">7. 基本使用</a></li>
+                    <li><a href="#sec-8" class="block text-gray-400 hover:text-primary transition py-1">8. JSON 驗證</a></li>
+                    <li><a href="#sec-9" class="block text-gray-400 hover:text-primary transition py-1">9. Pipeline 範例</a></li>
+                    <li><a href="#sec-10" class="block text-gray-400 hover:text-primary transition py-1">10. 手動流程</a></li>
+                    <li><a href="#sec-11" class="block text-gray-400 hover:text-primary transition py-1">11. Benchmark / 效率紀錄</a></li>
+                    <li><a href="#sec-12" class="block text-gray-400 hover:text-primary transition py-1">12. Release / Freeze 證據檔</a></li>
+                    <li><a href="#sec-13" class="block text-gray-400 hover:text-primary transition py-1">13. 移除安裝</a></li>
+                    <li><a href="#sec-14" class="block text-gray-400 hover:text-primary transition py-1">14. 疑難排解</a></li>
+                    <li><a href="#sec-15" class="block text-gray-400 hover:text-primary transition py-1">15. 各種 PASS 代表什麼</a></li>
+                    <li><a href="#sec-16" class="block text-gray-400 hover:text-primary transition py-1">16. 設計摘要</a></li>
+                    <li><a href="#sec-17" class="block text-gray-400 hover:text-primary transition py-1">17. 已知限制</a></li>
+                    <li><a href="#sec-18" class="block text-gray-400 hover:text-primary transition py-1">18. 快速指令表</a></li>
+                </ul>
+            </details>
             <div class="sticky top-24 bg-gray-850 p-6 rounded-xl border border-gray-800 hidden lg:block">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4">目錄導覽</h3>
                 <ul class="space-y-2 text-sm">
@@ -133,7 +156,7 @@ wget https://busybox.net/downloads/busybox-1.36.1.tar.bz2
 tar xf busybox-1.36.1.tar.bz2</code></pre>
                 <div class="mt-4 text-sm text-gray-300">
                     <p class="mb-2">執行 <code class="font-mono">ls ~/workspace/busybox-1.36.1</code> 進行結構驗證，確認包含以下 BusyBox 標準核心目錄：</p>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 font-mono text-xs bg-gray-900 p-3 rounded border border-gray-800">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 font-mono text-xs bg-gray-900 p-3 rounded border border-gray-800">
                         <div>📁 applets/ (註冊路由器)</div>
                         <div>📁 include/ (共用標頭檔)</div>
                         <div>📁 miscutils/ (整合目標區)</div>
@@ -153,7 +176,7 @@ tar xf busybox-1.36.1.tar.bz2</code></pre>
                 <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>cd ~/workspace
 git clone https://github.com/aloea4/BusyBox-Diag final_project</code></pre>
                 <p class="text-sm text-gray-400 mt-2">請確保您的目錄拓撲結構嚴格維持如下排列：</p>
-                <pre class="bg-gray-950 p-3 rounded font-mono text-xs text-gray-400 mt-1"><code>~/workspace/
+                <pre class="bg-gray-950 p-3 rounded font-mono text-xs text-gray-400 mt-1 overflow-x-auto"><code>~/workspace/
 ├── busybox-1.36.1/   # 上游 BusyBox 原始碼樹
 └── final_project/     # 本專題核心程式碼與腳本庫</code></pre>
             </section>
@@ -167,7 +190,7 @@ git clone https://github.com/aloea4/BusyBox-Diag final_project</code></pre>
                 <pre class="bg-gray-950 p-4 rounded-lg font-mono text-sm overflow-x-auto text-emerald-400"><code>cd ~/workspace/final_project
 scripts/bootstrap_busybox_diag.sh ~/workspace/busybox-1.36.1</code></pre>
                 <p class="text-sm text-gray-400 mt-2">如果您不希望建構腳本自動修改環境變數路徑（<code class="font-mono">~/.bashrc</code>），可加入防護旗標：</p>
-                <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-500"><code>scripts/bootstrap_busybox_diag.sh ~/workspace/busybox-1.36.1 --no-activate</code></pre>
+                <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-500 overflow-x-auto"><code>scripts/bootstrap_busybox_diag.sh ~/workspace/busybox-1.36.1 --no-activate</code></pre>
                 <div class="mt-4 bg-gray-900 p-4 rounded-lg border border-gray-800 text-sm">
                     <h4 class="font-bold text-white mb-2">⚙️ Bootstrap 自動化流程內幕：</h4>
                     <ol class="list-decimal list-inside space-y-1 text-gray-300">
@@ -211,10 +234,10 @@ ptop --help</code></pre>
                     <h3 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-primary"></span> 7.1 diagfs 檔案系統工具
                     </h3>
-                    <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3"><code>diagfs --output table /
+                    <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3 overflow-x-auto"><code>diagfs --output table /
 diagfs --output json /</code></pre>
                     <p class="text-sm text-gray-400 mb-2">📊 核心回報指標含義：</p>
-                    <div class="grid grid-cols-2 gap-4 text-xs bg-gray-850 p-3 rounded">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-gray-850 p-3 rounded">
                         <div><strong class="text-white">Path:</strong> 觀測掛載目標路徑</div>
                         <div><strong class="text-white">Filesystem type:</strong> 底層檔案系統型態</div>
                         <div><strong class="text-white">Space usage:</strong> 區塊層實際空間水位</div>
@@ -227,7 +250,7 @@ diagfs --output json /</code></pre>
                     <h3 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-accent"></span> 7.2 diagnet 網路狀態監控
                     </h3>
-                    <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3"><code>diagnet --output table
+                    <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3 overflow-x-auto"><code>diagnet --output table
 diagnet --output raw</code></pre>
                     <p class="text-sm text-gray-300">
                         作為一個嚴格的 <span class="text-white font-semibold">被動式核心狀態觀察器</span>，它直接解碼 Linux 核心匯出的虛擬文字。運作期間<strong>絕不建立 Socket、不主動探測、亦不抓取實體封包</strong>，對線上運行業務具備零侵入性。
@@ -239,10 +262,10 @@ diagnet --output raw</code></pre>
                     <h3 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-purple-500"></span> 7.3 ptop 行程資源監控
                     </h3>
-                    <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3"><code>ptop --output table -1 -n 1
+                    <pre class="bg-gray-950 p-3 rounded font-mono text-sm text-emerald-400 mb-3 overflow-x-auto"><code>ptop --output table -1 -n 1
 ptop --output json -1 -n 5 -t 10</code></pre>
                     <p class="text-sm text-gray-400 mb-2">⚙️ 核心調校參數：</p>
-                    <div class="grid grid-cols-2 gap-2 text-xs text-gray-300">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-300">
                         <div>• <code class="font-mono text-primary">-1</code>: 啟動單次快照批次模態 (One-shot)</div>
                         <div>• <code class="font-mono text-primary">-n N</code>: 設定樣本數據更新上限次數</div>
                         <div>• <code class="font-mono text-primary">-t N</code>: 限制僅渲染資源消耗最高的前 N 家行程</div>
