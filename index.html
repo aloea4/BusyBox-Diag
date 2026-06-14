@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BusyBox-Diag | 輕量整合式 Linux 診斷工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gray: { 850: '#1f2937', 900: '#111827' },
+                        primary: '#3b82f6',
+                        accent: '#10b981'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-900 text-gray-200 font-sans antialiased leading-relaxed">
+
+    <header class="container mx-auto px-6 py-20 text-center">
+        <h1 class="text-5xl font-extrabold text-white tracking-tight mb-4">
+            BusyBox-<span class="text-primary">Diag</span>
+        </h1>
+        <p class="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
+            專為資源受限的嵌入式環境打造，單一 Binary 整合 Process、Filesystem 與 Network 的輕量 Linux 系統診斷工具組。
+        </p>
+        <div class="flex justify-center gap-4">
+            <a href="https://github.com/aloea4/BusyBox-Diag" class="bg-primary hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 shadow-lg shadow-blue-500/30">
+                View on GitHub
+            </a>
+            <a href="https://github.com/aloea4/BusyBox-Diag/blob/main/docs/USER_MANUAL.md" class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-3 px-6 rounded-lg border border-gray-700 transition duration-300">
+                使用手冊
+            </a>
+        </div>
+    </header>
+
+    <section class="bg-gray-850 py-16 border-y border-gray-800">
+        <div class="container mx-auto px-6">
+            <h2 class="text-3xl font-bold text-white mb-10 text-center">核心設計亮點</h2>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-primary transition">
+                    <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                        <span class="text-primary">01.</span> 零外部依賴與嚴格分層
+                    </h3>
+                    <p class="text-gray-400 text-sm">採用「量測、分析、策略、展示」嚴格的四層架構設計。直接讀取 /proc 與 statfs()，不依賴 libprocps 或 ncurses，確保各層邏輯獨立。</p>
+                </div>
+                <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-primary transition">
+                    <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                        <span class="text-primary">02.</span> Libdiag 共用基礎設施
+                    </h3>
+                    <p class="text-gray-400 text-sm">獨立出 libdiag 模組統一處理字串解析與系統呼叫容錯。上層工具透過標準化結構體取用資料，實現真正的關注點分離。</p>
+                </div>
+                <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-primary transition">
+                    <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                        <span class="text-primary">03.</span> 統一與輕量部署
+                    </h3>
+                    <p class="text-gray-400 text-sm">深度依賴 BusyBox 的 argv[0] applet dispatch 機制，並支援 symlink 呼叫，達成單一執行檔多重功能的極致輕量化。</p>
+                </div>
+                <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-primary transition">
+                    <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                        <span class="text-primary">04.</span> 智慧輸出與管線防呆
+                    </h3>
+                    <p class="text-gray-400 text-sm">整合 isatty() 偵測終端機環境。支援 table、raw 與 json 輸出，一旦被 pipe 導出則自動關閉 ANSI 控制字元避免資料污染。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="container mx-auto px-6 py-20">
+        <h2 class="text-3xl font-bold text-white mb-12 text-center">系統診斷工具集深潛</h2>
+        <div class="space-y-8 max-w-4xl mx-auto">
+            
+            <div class="bg-gray-850 rounded-lg p-8 border border-gray-800 relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-primary/10 text-primary font-mono px-3 py-1 rounded-bl-lg text-sm">ptop</div>
+                <h3 class="text-2xl font-bold text-white mb-2">輕量行程資源分析器</h3>
+                <p class="text-gray-400 mb-4">專為批次分析與腳本化監控設計，徹底解決傳統互動式 top 的自動化痛點。</p>
+                <ul class="list-disc list-inside text-sm text-gray-300 space-y-2">
+                    <li><strong class="text-white">精確時間點基準：</strong>採用 clock_gettime(CLOCK_MONOTONIC)，避免時間逆跳。</li>
+                    <li><strong class="text-white">Snapshot-Delta 演算法：</strong>擷取雙時間點的 CPU jiffies 快照進行差分，還原真實使用率。</li>
+                    <li><strong class="text-white">VmRSS 記憶體觀測：</strong>直接反映系統真實實體記憶體壓力，摒棄虛擬記憶體總量。</li>
+                </ul>
+            </div>
+
+            <div class="bg-gray-850 rounded-lg p-8 border border-gray-800 relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-accent/10 text-accent font-mono px-3 py-1 rounded-bl-lg text-sm">diagfs</div>
+                <h3 class="text-2xl font-bold text-white mb-2">檔案系統健康檢測工具</h3>
+                <p class="text-gray-400 mb-4">無縫整合空間與 Inode 監控，專注解決容器時代的掛載複雜性。</p>
+                <ul class="list-disc list-inside text-sm text-gray-300 space-y-2">
+                    <li><strong class="text-white">Namespace 感知：</strong>解析 /proc/self/mounts，突破 Docker 隔離環境視角誤差。</li>
+                    <li><strong class="text-white">防溢位與 Ceiling 策略：</strong>Inode 計算採無條件進位，確保臨界點前精準觸發警報。</li>
+                </ul>
+            </div>
+
+            <div class="bg-gray-850 rounded-lg p-8 border border-gray-800 relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-purple-500/10 text-purple-400 font-mono px-3 py-1 rounded-bl-lg text-sm">diagnet</div>
+                <h3 class="text-2xl font-bold text-white mb-2">網路連線狀態監控器</h3>
+                <p class="text-gray-400 mb-4">被動式的核心 Socket 觀察器，不主動發送封包。</p>
+                <ul class="list-disc list-inside text-sm text-gray-300 space-y-2">
+                    <li><strong class="text-white">常數級空間複雜度：</strong>串流回呼介面，純統計模式下記憶體開銷不再隨連線數量暴增。</li>
+                    <li><strong class="text-white">Endianness 處理：</strong>精準將 Little-endian 十六進位還原為標準 Dotted-quad 格式。</li>
+                </ul>
+            </div>
+
+        </div>
+    </section>
+
+    <section class="bg-gray-850 py-16 border-y border-gray-800">
+        <div class="container mx-auto px-6 max-w-4xl">
+            <h2 class="text-3xl font-bold text-white mb-8 text-center">效能與驗證成果</h2>
+            <div class="overflow-x-auto rounded-lg border border-gray-700">
+                <table class="w-full text-left text-sm text-gray-300">
+                    <thead class="bg-gray-800 text-gray-100 uppercase font-semibold">
+                        <tr>
+                            <th class="px-6 py-4">診斷模組</th>
+                            <th class="px-6 py-4">對照基準 (Reference)</th>
+                            <th class="px-6 py-4">效能比值</th>
+                            <th class="px-6 py-4 text-center">測試結果</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700 bg-gray-900">
+                        <tr class="hover:bg-gray-800/50 transition">
+                            <td class="px-6 py-4 font-mono text-primary">ptop</td>
+                            <td class="px-6 py-4">GNU top</td>
+                            <td class="px-6 py-4 font-bold text-white">0.868 <span class="text-accent text-xs font-normal ml-1">更快速</span></td>
+                            <td class="px-6 py-4 text-center text-accent">✅ 通過</td>
+                        </tr>
+                        <tr class="hover:bg-gray-800/50 transition">
+                            <td class="px-6 py-4 font-mono text-primary">diagfs</td>
+                            <td class="px-6 py-4">GNU df</td>
+                            <td class="px-6 py-4 font-bold text-white">0.986 <span class="text-accent text-xs font-normal ml-1">更快速</span></td>
+                            <td class="px-6 py-4 text-center text-accent">✅ 通過</td>
+                        </tr>
+                        <tr class="hover:bg-gray-800/50 transition">
+                            <td class="px-6 py-4 font-mono text-primary">diagnet</td>
+                            <td class="px-6 py-4">iproute2 ss</td>
+                            <td class="px-6 py-4 font-bold text-white">1.196 <span class="text-gray-400 text-xs font-normal ml-1">符合標準</span></td>
+                            <td class="px-6 py-4 text-center text-accent">✅ 通過</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-xs text-gray-500 mt-4 text-center">* 效能比值 = 自製工具中位數時間 / 對照工具中位數時間。目標為 $\le 1.50$。</p>
+        </div>
+    </section>
+
+    <footer class="container mx-auto px-6 py-12 text-center border-t border-gray-800 mt-12">
+        <h4 class="text-lg font-bold text-white mb-4">開發團隊 (NCUE)</h4>
+        <div class="flex flex-wrap justify-center gap-4 text-gray-400 text-sm">
+            <span>鄺采霓 (專題規劃 / diagfs)</span>
+            <span class="text-gray-600">|</span>
+            <span>施丞澤 (libdiag / BusyBox 整合)</span>
+            <span class="text-gray-600">|</span>
+            <span>凌浩雲 (ptop)</span>
+            <span class="text-gray-600">|</span>
+            <span>方梓寧 (diagnet)</span>
+        </div>
+        <p class="text-xs text-gray-600 mt-8">© 2026 BusyBox-Diag Project</p>
+    </footer>
+
+</body>
+</html>
