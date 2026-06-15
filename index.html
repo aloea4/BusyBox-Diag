@@ -94,7 +94,7 @@
       border: 1px solid var(--border); border-radius: 8px;
       overflow: hidden; margin-bottom: 2rem;
       box-shadow: 0 16px 40px rgba(0,0,0,.4), 0 0 0 1px rgba(59,130,246,.1);
-      opacity: 0; animation: fadeUp .5s .25s forwards;
+      opacity: 0; animation: fadeUp .5s .55s forwards;
     }
     .term-bar {
       display: flex; align-items: center; gap: 6px;
@@ -127,14 +127,14 @@
       font-family: var(--mono); font-size: clamp(1.6rem,3.5vw,2.6rem);
       font-weight: 700; letter-spacing: -.02em; line-height: 1.2;
       margin-bottom: 1.1rem; max-width: 660px;
-      opacity: 0; animation: fadeUp .5s .45s forwards;
+      opacity: 0; animation: fadeUp .5s .25s forwards;
     }
     h1.hero-h em { font-style: normal; color: var(--accent); }
 
     .hero-sub {
       font-size: .95rem; color: var(--muted);
       max-width: 500px; margin-bottom: 1.8rem;
-      opacity: 0; animation: fadeUp .5s .6s forwards;
+      opacity: 0; animation: fadeUp .5s .4s forwards;
     }
 
     .badges {
@@ -363,6 +363,13 @@
 <section id="hero">
   <p class="course-tag">NCUE · UNIX 系統程式設計 · 2026 Spring · 第 9 組</p>
 
+  <h1 class="hero-h">
+    為受限 Linux 環境補上一組<br/><em>可攜式診斷工具</em>
+  </h1>
+  <p class="hero-sub">
+    單一 BusyBox-style binary，零外部依賴，提供 Process、Filesystem、Network 三類診斷 applet。
+  </p>
+
   <div class="terminal">
     <div class="term-bar">
       <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
@@ -370,13 +377,6 @@
     </div>
     <div class="term-body" id="termBody"><span class="cursor" id="cur"></span></div>
   </div>
-
-  <h1 class="hero-h">
-    為受限 Linux 環境補上一組<br/><em>可攜式診斷工具</em>
-  </h1>
-  <p class="hero-sub">
-    單一 BusyBox-style binary，零外部依賴，提供 Process、Filesystem、Network 三類診斷 applet。
-  </p>
   <div class="badges">
     <span class="badge">BusyBox 1.36.1</span>
     <span class="badge">3 applets</span>
