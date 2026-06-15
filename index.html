@@ -4,6 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BusyBox-Diag | 輕量整合式 Linux 診斷工具</title>
+  <meta name="description" content="BusyBox-Diag：整合 Process、Filesystem、Network 三類診斷的單一 BusyBox binary，零外部依賴，支援 Table / Raw / JSON 輸出。" />
+  <link rel="canonical" href="https://aloea4.github.io/BusyBox-Diag/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="BusyBox-Diag | 輕量整合式 Linux 診斷工具" />
+  <meta property="og:description" content="整合 Process、Filesystem、Network 三類診斷的單一 BusyBox binary，零外部依賴。" />
+  <meta property="og:url" content="https://aloea4.github.io/BusyBox-Diag/" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f172a'/%3E%3Ctext x='5' y='22' font-family='monospace' font-size='15' font-weight='700' fill='%233b82f6'%3E%3E_%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -342,6 +350,18 @@
       .nav-links.open { display: flex; }
       .arch-layer { grid-template-columns: 1fr; }
       .arch-layer-label { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+      }
+      html { scroll-behavior: auto; }
+      .course-tag, .terminal, h1.hero-h, .hero-sub, .badges, .cta,
+      .rev { opacity: 1 !important; transform: none !important; }
+      .cursor { animation: none !important; }
     }
   </style>
 </head>
@@ -791,13 +811,14 @@ const lines = [
 const body = document.getElementById('termBody');
 const cur  = document.getElementById('cur');
 
-const delay = ms => new Promise(r => setTimeout(r, ms));
+const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const delay = ms => new Promise(r => setTimeout(r, prefersReduced ? 0 : ms));
 
 async function typeLine(l) {
   const row = document.createElement('div');
   body.insertBefore(row, cur);
 
-  const p = document.createElement('span'); p.className='tp'; p.textContent='$ '; row.appendChild(p);
+  const p = document.createElement('span'); p.className='tp'; p.textContent='# '; row.appendChild(p);
   const c = document.createElement('span'); c.className='tc'; row.appendChild(c);
   const f = document.createElement('span'); f.className='tf'; row.appendChild(f);
 
